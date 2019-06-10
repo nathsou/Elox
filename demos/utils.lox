@@ -1,0 +1,104 @@
+
+fun digit2str(d) {
+  if (d == 0) return "0";
+  if (d == 1) return "1";
+  if (d == 2) return "2";
+  if (d == 3) return "3";
+  if (d == 4) return "4";
+  if (d == 5) return "5";
+  if (d == 6) return "6";
+  if (d == 7) return "7";
+  if (d == 8) return "8";
+  if (d == 9) return "9";
+}
+
+fun pow(a, exponent) {
+    var p = a;
+    for (var i = 1; i < exponent; i = i + 1) {
+        p = p * a;
+    }
+
+    return p;
+}
+
+var pow_2_52 = 4503599627370496; // 2 ** 52
+
+fun round(x) {
+  if (x > 0) {
+    return (x + pow_2_52) - pow_2_52;
+  }
+
+  return (x - pow_2_52) + pow_2_52;
+}
+
+fun floor(x) {
+  var floored = round(x);
+  if (x - floored < 0) {
+    floored = floored - 1;
+  }
+
+  return floored;
+}
+
+fun mod(x, m) {
+  return x - floor(x / m) * m;
+}
+
+fun abs(x) {
+  if (x < 0) return -x;
+  return x;
+}
+
+fun int2str(num) {
+  if (num == 0) return "0";
+
+  var s = "";
+  var sign = "";
+  if (num < 0) sign = "-";
+
+  num = floor(abs(num));
+
+  for (var n = num; n >= 1; n = n / 10) {
+    var digit = mod(floor(n), 10);
+    if (digit < 0) digit = 10 + digit;
+    print digit;
+    print digit2str(digit);
+    s = digit2str(digit) + s;
+  }
+
+  return sign + s;
+}
+
+fun num2str(num) {
+  var int = floor(num);
+  var frac = num - int;
+
+  if (frac == 0) return int2str(num);
+
+  while (mod(frac, 1) != 0) {
+    frac = frac * 10;
+  }
+
+  return int2str(int) + "." + int2str(frac);
+}
+
+fun time(fn) {
+    var t1 = clock();
+    fn();
+    return (clock() - t1) * 1000; //ms
+}
+
+fun ordinal_indicator(n) {
+  var m = mod(n, 100);
+  if (m >= 10 and m <= 20) return "th";
+  m = mod(n, 10);
+  if (m > 3) return "th";
+  if (m == 1) return "st";
+  if (m == 2) return "nd";
+  if (m == 3) return "rd";
+  return "th";
+}
+
+for (var i = 0; i < 100; i = i + 1) {
+  print num2str(i / 7);
+}

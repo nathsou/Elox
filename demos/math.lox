@@ -1,0 +1,49 @@
+
+fun pow(a, exponent) {
+    var p = a;
+    for (var i = 1; i < exponent; i = i + 1) {
+        p = p * a;
+    }
+
+    return p;
+}
+
+fun sqrt(x) {
+    var eps = 0.0000001;
+    var guess = x;
+    var delta = 1 / 0;
+
+    while (delta > eps) {
+        var new_guess = (guess + x / guess) / 2;
+        delta = abs(new_guess - guess);
+        guess = new_guess;
+    }
+
+    return guess;
+}
+
+fun abs(x) {
+    if (x > 0) {
+        return x;
+    }
+
+    return -x;
+}
+
+fun time(fn) {
+    var t1 = clock();
+    fn();
+    return (clock() - t1) * 1000; // ms
+}
+
+fun benchmark_sqrt(N) {
+    fun bench() {
+        for (var i = 0; i < N; i = i + 1) {
+            sqrt(i);
+        }
+    }
+
+    return time(bench) / N;
+}
+
+print benchmark_sqrt(100000);
