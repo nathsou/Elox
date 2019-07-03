@@ -1,1 +1,1 @@
-print nil + "a: ";
+return "at top level";

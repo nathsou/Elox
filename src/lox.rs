@@ -1,10 +1,10 @@
 use crate::interpreter::Interpreter;
 // use crate::parser::pretty_printer::PrettyPrinter;
 use crate::interpreter::environment::Environment;
-use crate::parser::IdentifierHandlesGenerator;
-use crate::parser::Parser;
-use crate::scanner::Scanner;
 use crate::interpreter::lexical_scope::Resolver;
+use crate::parser::{IdentifierHandlesGenerator, Parser};
+use crate::scanner::Scanner;
+
 use std::fs;
 use std::io;
 use std::path::Path;
@@ -63,16 +63,21 @@ impl Lox {
                         let res = interpreter.interpret(&ast);
                         match res {
                             Ok(()) => {}
-                            Err(err) => println!("{}", err),
+                            Err(err) => {
+                                self.had_error = true;
+                                println!("{}", err);
+                            }
                         }
                     }
                     Err(e) => {
+                        self.had_error = true;
                         println!("{}", e);
                     }
                 }
 
             }
             Err(e) => {
+                self.had_error = true;
                 println!("{}", e);
             }
         }

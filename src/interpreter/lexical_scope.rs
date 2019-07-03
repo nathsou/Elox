@@ -8,6 +8,8 @@ use std::fmt;
 
 pub enum LexicalScopeResolutionError {
     VariableUsedInItsInitializer,
+    DuplicateVariableDeclaration,
+    ReturnKeywordOutsideFunction,
 }
 
 pub type LexicalScopeResolutionResult = Result<(), LexicalScopeResolutionError>;
@@ -19,9 +21,16 @@ pub enum IdentifierStatus {
     Defined,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum FunctionType {
+    Outside,
+    Function,
+}
+
 pub struct Resolver<'a> {
     scopes: Vec<FnvHashMap<IdentifierHandle, IdentifierStatus>>,
     interpreter: &'a mut Interpreter,
+    pub func_type: FunctionType,
 }
 
 impl<'a> Resolver<'a> {
@@ -29,6 +38,7 @@ impl<'a> Resolver<'a> {
         Resolver {
             scopes: Vec::new(),
             interpreter,
+            func_type: FunctionType::Outside,
         }
     }
 
@@ -40,9 +50,9 @@ impl<'a> Resolver<'a> {
         self.scopes.pop();
     }
 
-    fn declare(&mut self, identifier: IdentifierHandle) {
+    fn declare(&mut self, identifier: IdentifierHandle) -> LexicalScopeResolutionResult {
         if self.scopes.is_empty() {
-            return;
+            return Ok(());
         }
 
         let len = self.scopes.len();
@@ -50,8 +60,9 @@ impl<'a> Resolver<'a> {
         match self.scopes[len - 1].entry(identifier) {
             Entry::Vacant(v) => {
                 v.insert(IdentifierStatus::Declared);
+                Ok(())
             }
-            _ => {}
+            Entry::Occupied(_) => Err(LexicalScopeResolutionError::DuplicateVariableDeclaration),
         }
     }
 
@@ -85,10 +96,16 @@ impl<'a> Resolver<'a> {
         }
     }
 
-    fn resolve_function(&mut self, func: &FuncExpr) -> LexicalScopeResolutionResult {
+    fn resolve_function(
+        &mut self,
+        func: &FuncExpr,
+        type_: FunctionType,
+    ) -> LexicalScopeResolutionResult {
+        let enclosing_func_type = self.func_type;
+        self.func_type = type_;
         self.begin_scope();
         for &param in func.params.iter() {
-            self.declare(param.name);
+            self.declare(param.name)?;
             self.define(param.name);
         }
 
@@ -96,6 +113,7 @@ impl<'a> Resolver<'a> {
             stmt.resolve(self)?;
         }
         self.end_scope();
+        self.func_type = enclosing_func_type;
         Ok(())
     }
 
@@ -124,7 +142,7 @@ impl LexicallyScoped for Stmt {
                 Ok(())
             }
             Stmt::VarDecl(decl) => {
-                resolver.declare(decl.identifier.name);
+                resolver.declare(decl.identifier.name)?;
                 if let Some(init) = &decl.initializer {
                     init.resolve(resolver)?;
                 }
@@ -142,6 +160,11 @@ impl LexicallyScoped for Stmt {
             }
             Stmt::Print(print_stmt) => print_stmt.value.resolve(resolver),
             Stmt::Return(ret_stmt) => {
+
+                if let FunctionType::Outside = resolver.func_type {
+                    return Err(LexicalScopeResolutionError::ReturnKeywordOutsideFunction);
+                }
+
                 if let Some(expr) = &ret_stmt.value {
                     expr.resolve(resolver)?;
                 }
@@ -175,10 +198,10 @@ impl LexicallyScoped for Expr {
             }
             Expr::Func(func) => {
                 if let Some(identifier) = func.name {
-                    resolver.declare(identifier.name);
+                    resolver.declare(identifier.name)?;
                     resolver.define(identifier.name);
 
-                    resolver.resolve_function(func)?;
+                    resolver.resolve_function(func, FunctionType::Function)?;
                 }
 
                 Ok(())
@@ -212,6 +235,12 @@ impl fmt::Display for LexicalScopeResolutionError {
         match self {
             LexicalScopeResolutionError::VariableUsedInItsInitializer => {
                 write!(f, "Cannot read local variable in its own initializer")
+            }
+            LexicalScopeResolutionError::DuplicateVariableDeclaration => {
+                write!(f, "Duplicate variable declaration")
+            }
+            LexicalScopeResolutionError::ReturnKeywordOutsideFunction => {
+                write!(f, "return keyword found outside of a function body")
             }
         }
     }
