@@ -74,7 +74,7 @@ impl PrettyPrinter for Literal {
 
 impl PrettyPrinter for VarExpr {
     fn pretty_print(&self) -> String {
-        format!("{}", self.name)
+        format!("{}", self.identifier)
     }
 }
 
@@ -82,7 +82,7 @@ impl PrettyPrinter for AssignExpr {
     fn pretty_print(&self) -> String {
         String::from(format!(
             "(AssignExpr {} {})",
-            self.name,
+            self.identifier,
             self.expr.pretty_print()
         ))
     }
@@ -105,9 +105,9 @@ impl PrettyPrinter for FuncExpr {
         format!(
             "(FuncExpr {} {:?} => {})",
             if let Some(identifier) = &self.name {
-                identifier
+                format!("{}, ", identifier)
             } else {
-                &0
+                String::from("0")
             },
             self.params,
             self.body
@@ -147,9 +147,13 @@ impl PrettyPrinter for ExprStmt {
 impl PrettyPrinter for VarDeclStmt {
     fn pretty_print(&self) -> String {
         if let Some(init) = &self.initializer {
-            format!("(VarDeclStmt {} <- {:?})", self.name, init.pretty_print())
+            format!(
+                "(VarDeclStmt {} <- {:?})",
+                self.identifier,
+                init.pretty_print()
+            )
         } else {
-            format!("(VarDeclStmt {} <- nil)", self.name)
+            format!("(VarDeclStmt {} <- nil)", self.identifier)
         }
     }
 }

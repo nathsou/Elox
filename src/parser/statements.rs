@@ -1,4 +1,4 @@
-use super::IdentifierHandle;
+use super::IdentifierUse;
 use crate::parser::expressions::Expr;
 
 #[derive(Clone)]
@@ -37,14 +37,14 @@ impl PrintStmt {
 
 #[derive(Clone)]
 pub struct VarDeclStmt {
-    pub name: IdentifierHandle,
+    pub identifier: IdentifierUse,
     pub initializer: Option<Expr>,
 }
 
 impl VarDeclStmt {
-    pub fn to_stmt(name: IdentifierHandle, initializer: Option<Expr>) -> Stmt {
+    pub fn to_stmt(identifier: IdentifierUse, initializer: Option<Expr>) -> Stmt {
         Stmt::VarDecl(VarDeclStmt {
-            name: name,
+            identifier,
             initializer,
         })
     }

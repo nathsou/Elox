@@ -45,35 +45,42 @@ impl Environment {
     }
 
     fn register_natives(&self, identifiers: &mut IdentifierHandlesGenerator) {
-        self.define(identifiers.get("clock"), Value::Callable(Rc::new(Clock)));
+        self.define(
+            identifiers.by_name("clock"),
+            Value::Callable(Rc::new(Clock)),
+        );
     }
 
     pub fn define(&self, identifier: IdentifierHandle, value: Value) {
         self.current.borrow_mut().values.insert(identifier, value);
     }
 
-    pub fn get(&self, identifier: IdentifierHandle) -> Option<Value> {
+    pub fn get(&self, depth: usize, identifier: IdentifierHandle) -> Option<Value> {
         let current = self.current.borrow();
 
-        if current.values.contains_key(&identifier) {
-            if let Some(value) = current.values.get(&identifier) {
-                return Some(value.clone());
+        if depth == 0 {
+            if current.values.contains_key(&identifier) {
+                if let Some(value) = current.values.get(&identifier) {
+                    return Some(value.clone());
+                }
             }
-        } else if let Some(parent) = &current.parent {
-            return parent.get(identifier);
+        } else {
+            if let Some(parent) = &current.parent {
+                return parent.get(depth - 1, identifier);
+            }
         }
 
         None
     }
 
-    pub fn assign(&self, identifier: IdentifierHandle, value: Value) -> bool {
+    pub fn assign(&self, depth: usize, identifier: IdentifierHandle, value: Value) -> bool {
         let mut current = self.current.borrow_mut();
 
-        if current.values.contains_key(&identifier) {
+        if depth == 0 {
             current.values.insert(identifier, value);
             return true;
         } else if let Some(parent) = &current.parent {
-            return parent.assign(identifier, value);
+            return parent.assign(depth - 1, identifier, value);
         }
 
         false

@@ -11,38 +11,69 @@ use statements::*;
 use std::iter::Peekable;
 
 pub type IdentifierHandle = usize;
+pub type IdentifierUseHandle = usize;
 
 pub struct IdentifierHandlesGenerator {
     handles: FnvHashMap<std::string::String, IdentifierHandle>,
-    next_handle: IdentifierHandle,
+    next_id_handle: IdentifierHandle,
+    next_use_handle: IdentifierUseHandle
 }
 
 impl IdentifierHandlesGenerator {
     pub fn new() -> IdentifierHandlesGenerator {
         IdentifierHandlesGenerator {
             handles: FnvHashMap::default(),
-            next_handle: 0,
+            next_id_handle: 0,
+            next_use_handle: 0
         }
     }
 
-    pub fn next(&mut self) -> IdentifierHandle {
-        let curr = self.next_handle;
-        self.next_handle += 1;
+    fn next_id_handle(&mut self) -> IdentifierHandle {
+        let curr = self.next_id_handle;
+        self.next_id_handle += 1;
 
         return curr;
     }
 
-    pub fn get(&mut self, name: &str) -> IdentifierHandle {
+    pub fn next_use_handle(&mut self) -> IdentifierUseHandle {
+        let curr = self.next_use_handle;
+        self.next_use_handle += 1;
+
+        return curr;
+    }
+
+    pub fn by_name(&mut self, name: &str) -> IdentifierHandle {
         if let Some(handle) = self.handles.get(name) {
             return *handle;
         }
 
-        let handle = self.next();
+        let handle = self.next_id_handle();
         self.handles.insert(name.into(), handle);
 
         // println!("{} -> {}", name, handle);
 
         return handle;
+    }
+
+}
+
+#[derive(Hash, Eq, PartialEq, Clone, Copy, Debug)]
+pub struct IdentifierUse {
+    pub name: IdentifierHandle,
+    pub use_handle: IdentifierUseHandle 
+}
+
+impl std::fmt::Display for IdentifierUse {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "(name handle: {}, use: {})", self.name, self.use_handle)
+    }
+}
+
+impl IdentifierUse {
+    pub fn new(name: IdentifierHandle, use_handle: IdentifierUseHandle) -> IdentifierUse {
+        IdentifierUse {
+            name, use_handle
+        }
     }
 }
 
@@ -160,17 +191,20 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn match_identifier(&mut self) -> Option<IdentifierHandle> {
+    fn match_identifier(&mut self) -> Option<IdentifierUse> {
         if let Some(Ok(token)) = self.tokens.peek() {
             if let Identifier(name) = &token.token_type {
-                return Some(self.identifiers.get(name));
+                return Some(IdentifierUse::new(
+                    self.identifiers.by_name(name),
+                    self.identifiers.next_use_handle()
+                ));
             }
         }
 
         None
     }
 
-    fn consume_identifier(&mut self) -> Option<IdentifierHandle> {
+    fn consume_identifier(&mut self) -> Option<IdentifierUse> {
         if let Some(identifier) = self.match_identifier() {
             self.tokens.next();
             return Some(identifier);
@@ -180,7 +214,7 @@ impl<'a> Parser<'a> {
     }
 
     fn var_declaration(&mut self) -> ParserResult<Stmt> {
-        if let Some(name) = self.match_identifier() {
+        if let Some(identifier) = self.match_identifier() {
             self.tokens.next();
             let mut initializer: Option<Expr> = None;
 
@@ -192,7 +226,7 @@ impl<'a> Parser<'a> {
                 return Err(ParserError::ExpectedSemicolonAfterExpr());
             }
 
-            return Ok(VarDeclStmt::to_stmt(name, initializer));
+            return Ok(VarDeclStmt::to_stmt(identifier, initializer));
         } else {
             if let Some(Ok(tok)) = self.tokens.peek() {
                 return Err(ParserError::ExpectedVarName(tok.token_type.clone()));
@@ -415,7 +449,7 @@ impl<'a> Parser<'a> {
             let value = self.assignment()?;
 
             match expr {
-                Expr::Var(v) => return Ok(AssignExpr::new(v.name, value)),
+                Expr::Var(v) => return Ok(AssignExpr::new(v.identifier, value)),
                 _ => return Err(ParserError::InvalidAssignmentTarget()),
             }
         } else {
@@ -640,7 +674,11 @@ impl<'a> Parser<'a> {
                     return Err(ParserError::UnmatchingClosingParen());
                 }
             }
-            Identifier(name) => return Ok(VarExpr::new(self.identifiers.get(&name))),
+            Identifier(name) => return Ok(VarExpr::new(
+                IdentifierUse::new(
+                    self.identifiers.by_name(&name),
+                    self.identifiers.next_use_handle()
+                ))),
             Fun => self.function_declaration(),
             _ => Err(ParserError::UnexpectedToken(next)),
         }

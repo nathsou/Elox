@@ -27,7 +27,7 @@ impl LoxCallable for LoxFunction {
         let func_env = Environment::new(Some(&self.env));
 
         for (index, param) in self.func.params.iter().enumerate() {
-            func_env.define(*param, args[index].clone());
+            func_env.define(param.name, args[index].clone());
         }
 
         for stmt in &self.func.body {

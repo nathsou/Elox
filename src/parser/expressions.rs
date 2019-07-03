@@ -1,5 +1,5 @@
 use super::statements::Stmt;
-use super::IdentifierHandle;
+use super::IdentifierUse;
 
 #[derive(Clone)]
 pub enum Literal {
@@ -85,24 +85,24 @@ impl GroupingExpr {
 
 #[derive(Clone)]
 pub struct VarExpr {
-    pub name: IdentifierHandle,
+    pub identifier: IdentifierUse
 }
 
 impl VarExpr {
-    pub fn new(name: IdentifierHandle) -> Expr {
-        Expr::Var(VarExpr { name })
+    pub fn new(identifier: IdentifierUse) -> Expr {
+        Expr::Var(VarExpr { identifier })
     }
 }
 
 #[derive(Clone)]
 pub struct AssignExpr {
-    pub name: IdentifierHandle,
+    pub identifier: IdentifierUse,
     pub expr: Expr,
 }
 
 impl AssignExpr {
-    pub fn new(name: IdentifierHandle, expr: Expr) -> Expr {
-        Expr::Assign(Box::new(AssignExpr { name, expr }))
+    pub fn new(identifier: IdentifierUse, expr: Expr) -> Expr {
+        Expr::Assign(Box::new(AssignExpr { identifier, expr }))
     }
 }
 
@@ -143,15 +143,15 @@ impl CallExpr {
 
 #[derive(Clone)]
 pub struct FuncExpr {
-    pub name: Option<IdentifierHandle>,
-    pub params: Vec<IdentifierHandle>,
+    pub name: Option<IdentifierUse>,
+    pub params: Vec<IdentifierUse>,
     pub body: Vec<Stmt>,
 }
 
 impl FuncExpr {
     pub fn new(
-        name: Option<IdentifierHandle>,
-        params: Vec<IdentifierHandle>,
+        name: Option<IdentifierUse>,
+        params: Vec<IdentifierUse>,
         body: Vec<Stmt>,
     ) -> Expr {
         Expr::Func(FuncExpr { name, params, body })

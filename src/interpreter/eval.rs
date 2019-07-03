@@ -72,21 +72,21 @@ impl Eval for Interpreter {
             }
 
             Expr::Var(var_expr) => {
-                if let Some(value) = env.get(var_expr.name) {
+                if let Some(value) = self.lookup_variable(env, &var_expr.identifier) {
                     return Ok(value);
                 }
 
-                Err(EvalError::UndefinedVariable(var_expr.name))
+                Err(EvalError::UndefinedVariable(var_expr.identifier.name))
             }
             Expr::Assign(expr) => {
                 let assign_expr = expr.deref();
                 let value = self.eval(env, &assign_expr.expr)?;
 
-                if env.assign(expr.name, value.clone()) {
+                if self.assign_variable(env, &expr.identifier, value.clone()) {
                     return Ok(value);
                 }
 
-                Err(EvalError::UndefinedVariable(assign_expr.name.clone()))
+                Err(EvalError::UndefinedVariable(assign_expr.identifier.name))
             }
             Expr::Logical(expr) => {
                 let left = self.eval(env, &expr.left)?;
@@ -130,8 +130,8 @@ impl Eval for Interpreter {
                 let f = Value::Callable(Rc::new(func));
 
                 // if not anonymous
-                if let Some(name) = func_expr.name {
-                    env.define(name, f.clone());
+                if let Some(identifier) = func_expr.name {
+                    env.define(identifier.name, f.clone());
                 }
 
                 Ok(f)

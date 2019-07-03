@@ -30,7 +30,7 @@ impl Exec for Interpreter {
                     value = self.eval(env, init_expr)?;
                 }
 
-                env.define(decl.name, value);
+                env.define(decl.identifier.name, value);
                 Ok(())
             }
             Stmt::Block(block) => {

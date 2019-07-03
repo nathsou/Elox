@@ -12,6 +12,11 @@ fun digit2str(d) {
   if (d == 9) return "9";
 }
 
+fun abs(x) {
+  if (x < 0) return -x;
+  return x;
+}
+
 fun pow(a, exponent) {
     var p = a;
     for (var i = 1; i < exponent; i = i + 1) {
@@ -19,6 +24,20 @@ fun pow(a, exponent) {
     }
 
     return p;
+}
+
+fun sqrt(x) {
+    var eps = 0.0000001;
+    var guess = x;
+    var delta = 1 / 0;
+
+    while (delta > eps) {
+        var new_guess = (guess + x / guess) / 2;
+        delta = abs(new_guess - guess);
+        guess = new_guess;
+    }
+
+    return guess;
 }
 
 var pow_2_52 = 4503599627370496; // 2 ** 52
@@ -44,12 +63,7 @@ fun mod(x, m) {
   return x - floor(x / m) * m;
 }
 
-fun abs(x) {
-  if (x < 0) return -x;
-  return x;
-}
-
-fun int2str(num) {
+fun int2str_radix(num, base) {
   if (num == 0) return "0";
 
   var s = "";
@@ -58,28 +72,34 @@ fun int2str(num) {
 
   num = floor(abs(num));
 
-  for (var n = num; n >= 1; n = n / 10) {
-    var digit = mod(floor(n), 10);
-    if (digit < 0) digit = 10 + digit;
-    print digit;
-    print digit2str(digit);
+  for (var n = num; n >= 1; n = n / base) {
+    var digit = mod(floor(n), base);
+    if (digit < 0) digit = base + digit;
     s = digit2str(digit) + s;
   }
 
   return sign + s;
 }
 
-fun num2str(num) {
+fun int2str(num) {
+  return int2str_radix(num, 10);
+}
+
+fun num2str_radix(num, base) {  
   var int = floor(num);
   var frac = num - int;
 
   if (frac == 0) return int2str(num);
 
   while (mod(frac, 1) != 0) {
-    frac = frac * 10;
+    frac = frac * base;
   }
 
-  return int2str(int) + "." + int2str(frac);
+  return int2str_radix(int, base) + "." + int2str_radix(frac, base);
+}
+
+fun num2str(num) {  
+  return num2str_radix(num, 10);
 }
 
 fun time(fn) {
@@ -99,6 +119,49 @@ fun ordinal_indicator(n) {
   return "th";
 }
 
-for (var i = 0; i < 100; i = i + 1) {
-  print num2str(i / 7);
+fun rand_generator(a, c, m, seed) {
+  fun next() {
+    seed = mod(a * seed + c, m);
+    return seed / m;
+  }
+
+  return next;
 }
+
+fun dist(x1, y1, x2, y2) {
+  return sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2));
+}
+
+fun dist_sq(x1, y1, x2, y2) {
+  return pow(x2 - x1, 2) + pow(y2 - y1, 2);
+}
+
+fun compute_pi(iters) {
+  var rand = rand_generator(25214903917, 11, pow(2, 48), clock() * 1000);
+  var inside_circle = 0;
+
+  for (var i = 0; i < iters; i = i + 1) {
+    var x = (rand() * 2) - 1;
+    var y = (rand() * 2) - 1;
+
+    if (dist_sq(x, y, 0, 0) < 1) {
+      inside_circle = inside_circle + 1; 
+    }
+  }
+
+  return (inside_circle / iters) * 4;
+}
+
+fun main() {
+  var pi;
+
+  fun calc_pi() {
+    pi = compute_pi(pow(10,5));
+  }
+
+  var took = floor(time(calc_pi));
+
+  print "pi ~ " + num2str(pi) + " took " + num2str(took) + " ms";
+}
+
+main();
