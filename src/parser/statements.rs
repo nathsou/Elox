@@ -1,5 +1,5 @@
 use super::IdentifierUse;
-use crate::parser::expressions::Expr;
+use crate::parser::expressions::{Expr, FuncExpr};
 
 #[derive(Clone)]
 pub enum Stmt {
@@ -10,6 +10,7 @@ pub enum Stmt {
     If(IfStmt),
     While(WhileStmt),
     Return(ReturnStmt),
+    ClassDecl(ClassDeclStmt),
 }
 
 // expression statement aka an expression followed by ;
@@ -105,5 +106,19 @@ pub struct ReturnStmt {
 impl ReturnStmt {
     pub fn to_stmt(value: Option<Expr>) -> Stmt {
         Stmt::Return(ReturnStmt { value })
+    }
+}
+
+#[derive(Clone)]
+pub struct ClassDeclStmt {
+    pub identifier: IdentifierUse,
+    pub methods: Vec<FuncExpr>
+}
+
+impl ClassDeclStmt {
+    pub fn to_stmt(identifier: IdentifierUse, methods: Vec<FuncExpr>) -> Stmt {
+        Stmt::ClassDecl(ClassDeclStmt {
+            identifier, methods
+        })
     }
 }

@@ -20,6 +20,9 @@ pub enum Expr {
     Logical(Box<LogicalExpr>),
     Call(Box<CallExpr>),
     Func(FuncExpr),
+    Get(Box<GetExpr>),
+    Set(Box<SetExpr>),
+    This(ThisExpr),
 }
 
 #[derive(Debug, Clone)]
@@ -85,7 +88,7 @@ impl GroupingExpr {
 
 #[derive(Clone)]
 pub struct VarExpr {
-    pub identifier: IdentifierUse
+    pub identifier: IdentifierUse,
 }
 
 impl VarExpr {
@@ -149,11 +152,41 @@ pub struct FuncExpr {
 }
 
 impl FuncExpr {
-    pub fn new(
-        name: Option<IdentifierUse>,
-        params: Vec<IdentifierUse>,
-        body: Vec<Stmt>,
-    ) -> Expr {
+    pub fn new(name: Option<IdentifierUse>, params: Vec<IdentifierUse>, body: Vec<Stmt>) -> Expr {
         Expr::Func(FuncExpr { name, params, body })
     }
+}
+
+#[derive(Clone)]
+pub struct GetExpr {
+    pub property: IdentifierUse,
+    pub object: Expr,
+}
+
+impl GetExpr {
+    pub fn new(property: IdentifierUse, object: Expr) -> Expr {
+        Expr::Get(Box::new(GetExpr { property, object }))
+    }
+}
+
+#[derive(Clone)]
+pub struct SetExpr {
+    pub property: IdentifierUse,
+    pub object: Expr,
+    pub value: Expr,
+}
+
+impl SetExpr {
+    pub fn new(property: IdentifierUse, object: Expr, value: Expr) -> Expr {
+        Expr::Set(Box::new(SetExpr {
+            property,
+            object,
+            value,
+        }))
+    }
+}
+
+#[derive(Clone)]
+pub struct ThisExpr {
+    pub identifier: IdentifierUse
 }

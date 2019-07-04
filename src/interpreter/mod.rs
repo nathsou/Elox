@@ -1,12 +1,15 @@
 pub mod environment;
+
 mod eval;
 mod eval_result;
 mod execute;
 pub mod lexical_scope;
 mod lox_callable;
+mod lox_class;
+mod lox_instance;
 mod lox_function;
 mod natives;
-mod value;
+pub mod value;
 
 use crate::parser::{statements::Stmt, IdentifierUse, IdentifierUseHandle};
 use environment::Environment;
@@ -49,7 +52,12 @@ impl Interpreter {
         }
     }
 
-    pub fn assign_variable(&self, env: &Environment, identifier: &IdentifierUse, value: Value) -> bool {
+    pub fn assign_variable(
+        &self,
+        env: &Environment,
+        identifier: &IdentifierUse,
+        value: Value,
+    ) -> bool {
         if let Some(&depth) = self.depths.get(&identifier.use_handle) {
             env.assign(depth, identifier.name, value)
         } else {

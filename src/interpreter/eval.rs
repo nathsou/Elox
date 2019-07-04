@@ -136,6 +136,37 @@ impl Eval for Interpreter {
 
                 Ok(f)
             }
+            Expr::Get(get_expr) => {
+                let val = self.eval(env, &get_expr.object)?;
+
+                if let Some(instance) = val.into_instance() {
+                    if let Some(prop_val) = instance.get(get_expr.property.name) {
+                        return Ok(prop_val);
+                    } else {
+                        return Err(EvalError::UndefinedProperty(get_expr.property.name));
+                    }
+                }
+                
+                Err(EvalError::OnlyInstancesHaveProperties())
+            }
+            Expr::Set(set_expr) => {
+                let obj = self.eval(env, &set_expr.object)?;
+
+                if let Some(instance) = &obj.into_instance() {
+                    let val = self.eval(env, &set_expr.value)?;
+                    instance.set(set_expr.property.name, &val);
+                    return Ok(val);
+                }
+
+                Err(EvalError::OnlyInstancesHaveProperties())
+            }
+            Expr::This(this_expr) => {
+                if let Some(this) = self.lookup_variable(env, &this_expr.identifier) {
+                    return Ok(this);
+                }   
+
+                Ok(Value::Nil)
+            }
         }
     }
 }

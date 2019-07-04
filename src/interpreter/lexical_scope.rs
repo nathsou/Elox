@@ -1,6 +1,8 @@
 use super::Interpreter;
 use super::Stmt;
-use crate::parser::{expressions::Expr, expressions::FuncExpr, IdentifierHandle, IdentifierUse};
+use crate::parser::{
+    expressions::Expr, expressions::FuncExpr, Identifier, IdentifierHandle, IdentifierUse,
+};
 use fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
 use std::fmt;
@@ -10,6 +12,8 @@ pub enum LexicalScopeResolutionError {
     VariableUsedInItsInitializer,
     DuplicateVariableDeclaration,
     ReturnKeywordOutsideFunction,
+    AnonymousClassMethod,
+    CannotUseThisOutsideOfAClass,
 }
 
 pub type LexicalScopeResolutionResult = Result<(), LexicalScopeResolutionError>;
@@ -25,12 +29,20 @@ pub enum IdentifierStatus {
 pub enum FunctionType {
     Outside,
     Function,
+    Method,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum ClassType {
+    NotAClass,
+    Class,
 }
 
 pub struct Resolver<'a> {
     scopes: Vec<FnvHashMap<IdentifierHandle, IdentifierStatus>>,
     interpreter: &'a mut Interpreter,
     pub func_type: FunctionType,
+    pub class_type: ClassType,
 }
 
 impl<'a> Resolver<'a> {
@@ -39,6 +51,7 @@ impl<'a> Resolver<'a> {
             scopes: Vec::new(),
             interpreter,
             func_type: FunctionType::Outside,
+            class_type: ClassType::NotAClass,
         }
     }
 
@@ -101,9 +114,15 @@ impl<'a> Resolver<'a> {
         func: &FuncExpr,
         type_: FunctionType,
     ) -> LexicalScopeResolutionResult {
+        if let None = func.name {
+            return Err(LexicalScopeResolutionError::AnonymousClassMethod);
+        }
+
         let enclosing_func_type = self.func_type;
         self.func_type = type_;
+
         self.begin_scope();
+
         for &param in func.params.iter() {
             self.declare(param.name)?;
             self.define(param.name);
@@ -175,6 +194,25 @@ impl LexicallyScoped for Stmt {
                 while_stmt.body.resolve(resolver)?;
                 Ok(())
             }
+            Stmt::ClassDecl(class_decl) => {
+                let enclosing_class = resolver.class_type;
+                resolver.class_type = ClassType::Class;
+
+                resolver.declare(class_decl.identifier.name)?;
+                resolver.define(class_decl.identifier.name);
+
+                resolver.begin_scope();
+                resolver.define(Identifier::this());
+
+                for method in &class_decl.methods {
+                    resolver.resolve_function(method, FunctionType::Method)?;
+                }
+
+                resolver.end_scope();
+                resolver.class_type = enclosing_class;
+
+                Ok(())
+            }
         }
     }
 }
@@ -226,6 +264,20 @@ impl LexicallyScoped for Expr {
                 Ok(())
             }
             Expr::Unary(unary) => unary.right.resolve(resolver),
+            Expr::Get(get) => get.object.resolve(resolver),
+            Expr::Set(set) => {
+                set.object.resolve(resolver)?;
+                set.value.resolve(resolver)?;
+                Ok(())
+            }
+            Expr::This(this_expr) => {
+                if let ClassType::NotAClass = resolver.class_type {
+                    return Err(LexicalScopeResolutionError::CannotUseThisOutsideOfAClass);
+                }
+
+                resolver.resolve_local(&this_expr.identifier);
+                Ok(())
+            }
         }
     }
 }
@@ -240,7 +292,13 @@ impl fmt::Display for LexicalScopeResolutionError {
                 write!(f, "Duplicate variable declaration")
             }
             LexicalScopeResolutionError::ReturnKeywordOutsideFunction => {
-                write!(f, "return keyword found outside of a function body")
+                write!(f, "'return' keyword found outside of a function body")
+            }
+            LexicalScopeResolutionError::AnonymousClassMethod => {
+                write!(f, "A class method cannot be anonymous")
+            }
+            LexicalScopeResolutionError::CannotUseThisOutsideOfAClass => {
+                write!(f, "Cannot use the 'this' keyword outside of a class")
             }
         }
     }

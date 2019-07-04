@@ -1,1 +1,13 @@
-return "at top level";
+
+class ListNode {
+  init(value) {
+    this.value = value;
+    this.next = nil;
+    this.previous = nil;
+  }
+}
+
+var list = ListNode();
+list.init(3);
+
+print list.value;

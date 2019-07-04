@@ -13,6 +13,8 @@ pub enum EvalError {
     ValueNotCallable(),
     WrongNumberOfArgs(usize, usize),
     CouldNotGetTime(),
+    OnlyInstancesHaveProperties(),
+    UndefinedProperty(IdentifierHandle),
     Return(Value),
 }
 
@@ -37,6 +39,8 @@ impl fmt::Display for EvalError {
             }
             EvalError::CouldNotGetTime() => write!(f, "Could not get time"),
             EvalError::Return(_) => unreachable!(),
+            EvalError::OnlyInstancesHaveProperties() => write!(f, "Only instances have properties"),
+            EvalError::UndefinedProperty(id) => write!(f, "Undefined property: {}", id),
         }
     }
 }

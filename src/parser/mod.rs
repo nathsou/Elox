@@ -16,15 +16,28 @@ pub type IdentifierUseHandle = usize;
 pub struct IdentifierHandlesGenerator {
     handles: FnvHashMap<std::string::String, IdentifierHandle>,
     next_id_handle: IdentifierHandle,
-    next_use_handle: IdentifierUseHandle
+    next_use_handle: IdentifierUseHandle,
+}
+
+pub struct Identifier {}
+
+impl Identifier {
+    pub fn this() -> IdentifierHandle {
+        0
+    }
 }
 
 impl IdentifierHandlesGenerator {
+
     pub fn new() -> IdentifierHandlesGenerator {
+        let mut handles = FnvHashMap::default();
+
+        handles.insert(std::string::String::from("this"), Identifier::this());
+
         IdentifierHandlesGenerator {
-            handles: FnvHashMap::default(),
-            next_id_handle: 0,
-            next_use_handle: 0
+            next_id_handle: handles.len(),
+            handles,
+            next_use_handle: 0,
         }
     }
 
@@ -60,7 +73,7 @@ impl IdentifierHandlesGenerator {
 #[derive(Hash, Eq, PartialEq, Clone, Copy, Debug)]
 pub struct IdentifierUse {
     pub name: IdentifierHandle,
-    pub use_handle: IdentifierUseHandle 
+    pub use_handle: IdentifierUseHandle,
 }
 
 impl std::fmt::Display for IdentifierUse {
@@ -71,9 +84,7 @@ impl std::fmt::Display for IdentifierUse {
 
 impl IdentifierUse {
     pub fn new(name: IdentifierHandle, use_handle: IdentifierUseHandle) -> IdentifierUse {
-        IdentifierUse {
-            name, use_handle
-        }
+        IdentifierUse { name, use_handle }
     }
 }
 
@@ -138,6 +149,10 @@ impl<'a> Parser<'a> {
                     self.tokens.next();
                     res = Some(self.var_declaration());
                 }
+                Class => {
+                    self.tokens.next();
+                    res = Some(self.class_declaration());
+                }
                 _ => {}
             }
         }
@@ -153,6 +168,34 @@ impl<'a> Parser<'a> {
         }
 
         return self.statement();
+    }
+
+    fn class_declaration(&mut self) -> ParserResult<Stmt> {
+        if let Some(name) = self.consume_identifier() {
+            if self.consume(LeftBrace) {
+                let mut methods = Vec::new();
+
+                while !self.match_next(RightBrace) {
+                    let func = self.function_declaration()?;
+                    match func {
+                        Expr::Func(f) => {
+                            methods.push(f);
+                        }
+                        _ => return Err(ParserError::ExpectedMethodDeclarationInClass(name.name)),
+                    }
+                }
+
+                if !self.consume(RightBrace) {
+                    return Err(ParserError::ExpectedRightBraceAfterClassBody());
+                }
+
+                return Ok(ClassDeclStmt::to_stmt(name, methods));
+            } else {
+                return Err(ParserError::ExpectedLeftBraceBeforeClassBody());
+            }
+        } else {
+            return Err(ParserError::ExpectedClassName());
+        }
     }
 
     fn function_declaration(&mut self) -> ParserResult<Expr> {
@@ -196,7 +239,7 @@ impl<'a> Parser<'a> {
             if let Identifier(name) = &token.token_type {
                 return Some(IdentifierUse::new(
                     self.identifiers.by_name(name),
-                    self.identifiers.next_use_handle()
+                    self.identifiers.next_use_handle(),
                 ));
             }
         }
@@ -450,6 +493,7 @@ impl<'a> Parser<'a> {
 
             match expr {
                 Expr::Var(v) => return Ok(AssignExpr::new(v.identifier, value)),
+                Expr::Get(g) => return Ok(SetExpr::new(g.property, g.object, value)),
                 _ => return Err(ParserError::InvalidAssignmentTarget()),
             }
         } else {
@@ -620,6 +664,12 @@ impl<'a> Parser<'a> {
         loop {
             if self.consume(LeftParen) {
                 expr = self.finish_call(expr)?;
+            } else if self.consume(Dot) {
+                if let Some(prop) = self.consume_identifier() {
+                    expr = GetExpr::new(prop, expr);
+                } else {
+                    return Err(ParserError::ExpectedPropertyNameAfterDot());
+                }
             } else {
                 break;
             }
@@ -674,12 +724,19 @@ impl<'a> Parser<'a> {
                     return Err(ParserError::UnmatchingClosingParen());
                 }
             }
-            Identifier(name) => return Ok(VarExpr::new(
-                IdentifierUse::new(
+            Identifier(name) => {
+                return Ok(VarExpr::new(IdentifierUse::new(
                     self.identifiers.by_name(&name),
-                    self.identifiers.next_use_handle()
-                ))),
+                    self.identifiers.next_use_handle(),
+                )))
+            }
             Fun => self.function_declaration(),
+            This => Ok(Expr::This(ThisExpr {
+                identifier: IdentifierUse::new(
+                    Identifier::this(),
+                    self.identifiers.next_use_handle(),
+                )
+            })),
             _ => Err(ParserError::UnexpectedToken(next)),
         }
     }

@@ -1,4 +1,5 @@
 use super::lox_callable::LoxCallable;
+use super::lox_instance::LoxInstance;
 use std::fmt;
 use std::rc::Rc;
 
@@ -9,6 +10,7 @@ pub enum Value {
     Nil,
     Boolean(bool),
     Callable(Rc<LoxCallable>),
+    Instance(LoxInstance)
 }
 
 impl Value {
@@ -27,6 +29,15 @@ impl Value {
             Value::Callable(c) => Some(c),
             _ => None,
         }
+    }
+
+    #[inline]
+    pub fn into_instance(self) -> Option<LoxInstance> {
+        if let Value::Instance(inst) = self {
+            return Some(inst);
+        }
+
+        None
     }
 }
 
@@ -51,6 +62,7 @@ impl fmt::Display for Value {
             Value::Number(nb) => write!(f, "{}", nb),
             Value::String(s) => write!(f, "{}", s),
             Value::Callable(c) => write!(f, "{:?}", c),
+            Value::Instance(i) => write!(f, "<instance {:?}>", i)
         }
     }
 }

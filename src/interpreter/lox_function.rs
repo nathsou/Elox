@@ -1,8 +1,10 @@
 use super::eval_result::{EvalError, EvalResult};
 use super::execute::Exec;
 use super::lox_callable::LoxCallable;
+use super::lox_instance::LoxInstance;
 use super::Environment;
 use super::Interpreter;
+use crate::parser::Identifier;
 use super::Value;
 use crate::parser::expressions::FuncExpr;
 
@@ -14,6 +16,13 @@ pub struct LoxFunction {
 impl LoxFunction {
     pub fn new(func: FuncExpr, env: Environment) -> LoxFunction {
         LoxFunction { func, env }
+    }
+
+    pub fn bind(&self, instance: &LoxInstance) -> LoxFunction {
+        let new_env = Environment::new(Some(&self.env));
+        new_env.define(Identifier::this(), Value::Instance(instance.clone()));
+
+        LoxFunction::new(self.func.clone(), new_env)
     }
 }
 

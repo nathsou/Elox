@@ -1,5 +1,6 @@
 use super::TokenType;
 use std::fmt;
+use super::IdentifierHandle;
 
 pub type ParserResult<T> = Result<T, ParserError>;
 
@@ -22,6 +23,11 @@ pub enum ParserError {
     ExpectedFuncParamName(),
     ExpectedLeftBraceBeforeFuncBody(),
     ExpectedSemiColonAfterReturnValue(),
+    ExpectedClassName(),
+    ExpectedLeftBraceBeforeClassBody(),
+    ExpectedRightBraceAfterClassBody(),
+    ExpectedPropertyNameAfterDot(),
+    ExpectedMethodDeclarationInClass(IdentifierHandle),
 }
 
 impl fmt::Display for ParserError {
@@ -55,6 +61,21 @@ impl fmt::Display for ParserError {
             }
             ParserError::ExpectedSemiColonAfterReturnValue() => {
                 write!(f, "Expected ';' after return value")
+            }
+            ParserError::ExpectedClassName() => {
+                write!(f, "Expected class name")
+            }
+            ParserError::ExpectedLeftBraceBeforeClassBody() => {
+                write!(f, "Expected '{{' before class body")
+            }
+            ParserError::ExpectedRightBraceAfterClassBody() => {
+                write!(f, "Expected '}}' after class body")
+            }
+            ParserError::ExpectedPropertyNameAfterDot() => {
+                write!(f, "Expected property name after '.'")
+            }
+            ParserError::ExpectedMethodDeclarationInClass(class_id) => {
+                write!(f, "Expected method declaration in class: {}", class_id)
             }
         }
     }

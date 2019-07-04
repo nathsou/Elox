@@ -17,6 +17,9 @@ impl PrettyPrinter for Expr {
             Expr::Logical(l) => l.pretty_print(),
             Expr::Call(c) => c.pretty_print(),
             Expr::Func(f) => f.pretty_print(),
+            Expr::Get(g) => g.pretty_print(),
+            Expr::Set(s) => s.pretty_print(),
+            Expr::This(_) => "this".into()
         }
     }
 }
@@ -118,6 +121,27 @@ impl PrettyPrinter for FuncExpr {
     }
 }
 
+impl PrettyPrinter for GetExpr {
+    fn pretty_print(&self) -> String {
+        format!(
+            "(GetExpr {}.{})",
+            self.object.pretty_print(),
+            self.property
+        )
+    }
+}
+
+impl PrettyPrinter for SetExpr {
+    fn pretty_print(&self) -> String {
+        format!(
+            "(SetExpr {}.{} = {})",
+            self.object.pretty_print(),
+            self.property,
+            self.value.pretty_print()
+        ) 
+    }
+}
+
 impl PrettyPrinter for Stmt {
     fn pretty_print(&self) -> String {
         match self {
@@ -128,6 +152,7 @@ impl PrettyPrinter for Stmt {
             Stmt::If(stmt) => stmt.pretty_print(),
             Stmt::While(stmt) => stmt.pretty_print(),
             Stmt::Return(stmt) => stmt.pretty_print(),
+            Stmt::ClassDecl(stmt) => stmt.pretty_print(),
         }
     }
 }
@@ -206,5 +231,18 @@ impl PrettyPrinter for ReturnStmt {
         }
 
         format!("(ReturnStmt nil)")
+    }
+}
+
+impl PrettyPrinter for ClassDeclStmt {
+    fn pretty_print(&self) -> String {
+        format!(
+            "(ClassDeclStmt {} {})",
+            self.identifier,
+            self.methods
+                .iter()
+                .map(|stmt| format!("{}, ", stmt.pretty_print()))
+                .collect::<String>()
+        )
     }
 }

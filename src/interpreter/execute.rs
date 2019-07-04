@@ -1,11 +1,15 @@
 use super::environment::Environment;
 use super::eval::Eval;
-use super::value::Value;
-use crate::interpreter::{
-    eval_result::{EvalError, EvalResult},
-    Interpreter,
-};
+use super::lox_class::LoxClass;
+
+use super::lox_function::LoxFunction;
+use super::Value;
+use crate::interpreter::eval_result::{EvalError, EvalResult};
+use crate::interpreter::Interpreter;
 use crate::parser::statements::Stmt;
+use crate::parser::IdentifierHandle;
+use fnv::FnvHashMap;
+use std::rc::Rc;
 
 pub trait Exec {
     fn exec(&self, env: &Environment, stmt: &Stmt) -> EvalResult<()>;
@@ -68,6 +72,21 @@ impl Exec for Interpreter {
                 };
 
                 Err(EvalError::Return(value))
+            }
+            Stmt::ClassDecl(class_decl) => {
+                env.define(class_decl.identifier.name, Value::Nil);
+                let mut methods: FnvHashMap<IdentifierHandle, Rc<LoxFunction>> = FnvHashMap::default();
+
+                for method in &class_decl.methods {
+                    let func = LoxFunction::new(method.clone(), env.clone());
+                    methods.insert(method.name.unwrap().name, Rc::new(func));
+                }
+
+                let lox_class = Rc::new(LoxClass::new(class_decl.identifier.name, methods));
+                let callable_class = Value::Callable(lox_class);
+                env.assign(0, class_decl.identifier.name, callable_class.clone());
+
+                Ok(())
             }
         }
     }
