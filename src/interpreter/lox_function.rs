@@ -4,25 +4,30 @@ use super::lox_callable::LoxCallable;
 use super::lox_instance::LoxInstance;
 use super::Environment;
 use super::Interpreter;
-use crate::parser::Identifier;
+
 use super::Value;
 use crate::parser::expressions::FuncExpr;
-
+use crate::parser::Identifier;
 pub struct LoxFunction {
     pub func: FuncExpr,
     pub env: Environment,
+    pub is_initializer: bool,
 }
 
 impl LoxFunction {
-    pub fn new(func: FuncExpr, env: Environment) -> LoxFunction {
-        LoxFunction { func, env }
+    pub fn new(func: FuncExpr, env: Environment, is_initializer: bool) -> LoxFunction {
+        LoxFunction {
+            func,
+            env,
+            is_initializer,
+        }
     }
 
     pub fn bind(&self, instance: &LoxInstance) -> LoxFunction {
         let new_env = Environment::new(Some(&self.env));
         new_env.define(Identifier::this(), Value::Instance(instance.clone()));
 
-        LoxFunction::new(self.func.clone(), new_env)
+        LoxFunction::new(self.func.clone(), new_env, self.is_initializer)
     }
 }
 
@@ -39,11 +44,31 @@ impl LoxCallable for LoxFunction {
             func_env.define(param.name, args[index].clone());
         }
 
+        let init_return = if self.is_initializer {
+            if let Some(val) = self.env.get(0, Identifier::this()) {
+                Some(val)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
         for stmt in &self.func.body {
             match interpreter.exec(&func_env, stmt) {
-                Err(EvalError::Return(val)) => return Ok(val),
+                Err(EvalError::Return(val)) => {
+                    if let Some(this) = init_return {
+                        return Ok(this);
+                    }
+
+                    return Ok(val);
+                }
                 _ => {}
             }
+        }
+
+        if let Some(this) = init_return {
+            return Ok(this);
         }
 
         Ok(Value::Nil)

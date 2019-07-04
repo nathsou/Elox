@@ -7,7 +7,7 @@ use super::Value;
 use crate::interpreter::eval_result::{EvalError, EvalResult};
 use crate::interpreter::Interpreter;
 use crate::parser::statements::Stmt;
-use crate::parser::IdentifierHandle;
+use crate::parser::{Identifier, IdentifierHandle};
 use fnv::FnvHashMap;
 use std::rc::Rc;
 
@@ -75,11 +75,14 @@ impl Exec for Interpreter {
             }
             Stmt::ClassDecl(class_decl) => {
                 env.define(class_decl.identifier.name, Value::Nil);
-                let mut methods: FnvHashMap<IdentifierHandle, Rc<LoxFunction>> = FnvHashMap::default();
+                let mut methods: FnvHashMap<IdentifierHandle, Rc<LoxFunction>> =
+                    FnvHashMap::default();
 
                 for method in &class_decl.methods {
-                    let func = LoxFunction::new(method.clone(), env.clone());
-                    methods.insert(method.name.unwrap().name, Rc::new(func));
+                    let name = method.name.unwrap().name;
+                    let func =
+                        LoxFunction::new(method.clone(), env.clone(), name == Identifier::init());
+                    methods.insert(name, Rc::new(func));
                 }
 
                 let lox_class = Rc::new(LoxClass::new(class_decl.identifier.name, methods));

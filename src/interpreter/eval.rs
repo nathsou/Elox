@@ -126,7 +126,7 @@ impl Eval for Interpreter {
                 }
             }
             Expr::Func(func_expr) => {
-                let func = LoxFunction::new(func_expr.clone(), env.clone());
+                let func = LoxFunction::new(func_expr.clone(), env.clone(), false);
                 let f = Value::Callable(Rc::new(func));
 
                 // if not anonymous

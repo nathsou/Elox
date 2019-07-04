@@ -13,6 +13,7 @@ use std::iter::Peekable;
 pub type IdentifierHandle = usize;
 pub type IdentifierUseHandle = usize;
 
+#[derive(Debug)]
 pub struct IdentifierHandlesGenerator {
     handles: FnvHashMap<std::string::String, IdentifierHandle>,
     next_id_handle: IdentifierHandle,
@@ -25,6 +26,10 @@ impl Identifier {
     pub fn this() -> IdentifierHandle {
         0
     }
+
+    pub fn init() -> IdentifierHandle {
+        1
+    }
 }
 
 impl IdentifierHandlesGenerator {
@@ -33,6 +38,7 @@ impl IdentifierHandlesGenerator {
         let mut handles = FnvHashMap::default();
 
         handles.insert(std::string::String::from("this"), Identifier::this());
+        handles.insert(std::string::String::from("init"), Identifier::init());
 
         IdentifierHandlesGenerator {
             next_id_handle: handles.len(),
@@ -735,7 +741,7 @@ impl<'a> Parser<'a> {
                 identifier: IdentifierUse::new(
                     Identifier::this(),
                     self.identifiers.next_use_handle(),
-                )
+                ),
             })),
             _ => Err(ParserError::UnexpectedToken(next)),
         }

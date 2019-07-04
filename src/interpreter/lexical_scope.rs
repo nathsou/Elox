@@ -14,6 +14,7 @@ pub enum LexicalScopeResolutionError {
     ReturnKeywordOutsideFunction,
     AnonymousClassMethod,
     CannotUseThisOutsideOfAClass,
+    CannotReturnInsideInitializer,
 }
 
 pub type LexicalScopeResolutionResult = Result<(), LexicalScopeResolutionError>;
@@ -29,6 +30,7 @@ pub enum IdentifierStatus {
 pub enum FunctionType {
     Outside,
     Function,
+    Initializer,
     Method,
 }
 
@@ -180,8 +182,16 @@ impl LexicallyScoped for Stmt {
             Stmt::Print(print_stmt) => print_stmt.value.resolve(resolver),
             Stmt::Return(ret_stmt) => {
 
-                if let FunctionType::Outside = resolver.func_type {
-                    return Err(LexicalScopeResolutionError::ReturnKeywordOutsideFunction);
+                match resolver.func_type {
+                    FunctionType::Outside => {
+                        return Err(LexicalScopeResolutionError::ReturnKeywordOutsideFunction);
+                    }
+                    FunctionType::Initializer => {
+                        if let Some(_) = ret_stmt.value {
+                            return Err(LexicalScopeResolutionError::CannotReturnInsideInitializer);
+                        }
+                    }
+                    _ => {}
                 }
 
                 if let Some(expr) = &ret_stmt.value {
@@ -205,7 +215,13 @@ impl LexicallyScoped for Stmt {
                 resolver.define(Identifier::this());
 
                 for method in &class_decl.methods {
-                    resolver.resolve_function(method, FunctionType::Method)?;
+                    let func_type = if method.name.unwrap().name == Identifier::init() {
+                        FunctionType::Initializer
+                    } else {
+                        FunctionType::Method
+                    };
+
+                    resolver.resolve_function(method, func_type)?;
                 }
 
                 resolver.end_scope();
@@ -299,6 +315,9 @@ impl fmt::Display for LexicalScopeResolutionError {
             }
             LexicalScopeResolutionError::CannotUseThisOutsideOfAClass => {
                 write!(f, "Cannot use the 'this' keyword outside of a class")
+            }
+            LexicalScopeResolutionError::CannotReturnInsideInitializer => {
+                write!(f, "Cannot return a value inside an initializer")
             }
         }
     }
