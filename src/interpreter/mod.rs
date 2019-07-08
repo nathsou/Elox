@@ -6,8 +6,8 @@ mod execute;
 pub mod lexical_scope;
 mod lox_callable;
 mod lox_class;
-mod lox_instance;
 mod lox_function;
+mod lox_instance;
 mod natives;
 pub mod value;
 
@@ -44,7 +44,6 @@ impl Interpreter {
     }
 
     pub fn lookup_variable(&self, env: &Environment, identifier: &IdentifierUse) -> Option<Value> {
-
         if let Some(&depth) = self.depths.get(&identifier.use_handle) {
             env.get(depth, identifier.name)
         } else {

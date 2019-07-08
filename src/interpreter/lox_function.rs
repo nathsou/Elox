@@ -63,7 +63,8 @@ impl LoxCallable for LoxFunction {
 
                     return Ok(val);
                 }
-                _ => {}
+                Err(e) => return Err(e),
+                Ok(_) => {}
             }
         }
 

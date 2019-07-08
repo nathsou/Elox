@@ -7,7 +7,6 @@ use fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
 use std::fmt;
 
-
 pub enum LexicalScopeResolutionError {
     VariableUsedInItsInitializer,
     DuplicateVariableDeclaration,
@@ -117,7 +116,9 @@ impl<'a> Resolver<'a> {
         type_: FunctionType,
     ) -> LexicalScopeResolutionResult {
         if let None = func.name {
-            return Err(LexicalScopeResolutionError::AnonymousClassMethod);
+            if let FunctionType::Method = type_ {
+                return Err(LexicalScopeResolutionError::AnonymousClassMethod);
+            }
         }
 
         let enclosing_func_type = self.func_type;
@@ -181,7 +182,6 @@ impl LexicallyScoped for Stmt {
             }
             Stmt::Print(print_stmt) => print_stmt.value.resolve(resolver),
             Stmt::Return(ret_stmt) => {
-
                 match resolver.func_type {
                     FunctionType::Outside => {
                         return Err(LexicalScopeResolutionError::ReturnKeywordOutsideFunction);
@@ -254,9 +254,8 @@ impl LexicallyScoped for Expr {
                 if let Some(identifier) = func.name {
                     resolver.declare(identifier.name)?;
                     resolver.define(identifier.name);
-
-                    resolver.resolve_function(func, FunctionType::Function)?;
                 }
+                resolver.resolve_function(func, FunctionType::Function)?;
 
                 Ok(())
             }

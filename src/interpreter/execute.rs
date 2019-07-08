@@ -65,6 +65,7 @@ impl Exec for Interpreter {
                 Ok(())
             }
             Stmt::Return(ret_stmt) => {
+
                 let value = if let Some(val) = &ret_stmt.value {
                     self.eval(env, &val)?
                 } else {

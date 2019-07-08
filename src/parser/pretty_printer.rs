@@ -19,7 +19,7 @@ impl PrettyPrinter for Expr {
             Expr::Func(f) => f.pretty_print(),
             Expr::Get(g) => g.pretty_print(),
             Expr::Set(s) => s.pretty_print(),
-            Expr::This(_) => "this".into()
+            Expr::This(_) => "this".into(),
         }
     }
 }
@@ -64,13 +64,13 @@ impl PrettyPrinter for Literal {
             Literal::Nil => "nil".to_owned(),
             Literal::Boolean(b) => {
                 if *b {
-                    "true".to_owned()
+                    "(boolean true)".to_owned()
                 } else {
-                    "false".to_owned()
+                    "(boolean false)".to_owned()
                 }
             }
-            Literal::Number(nb) => nb.to_string(),
-            Literal::String(s) => s.clone(),
+            Literal::Number(nb) => format!("(number {})", nb),
+            Literal::String(s) => format!("(string {})", s),
         }
     }
 }
@@ -123,22 +123,18 @@ impl PrettyPrinter for FuncExpr {
 
 impl PrettyPrinter for GetExpr {
     fn pretty_print(&self) -> String {
-        format!(
-            "(GetExpr {}.{})",
-            self.object.pretty_print(),
-            self.property
-        )
+        format!("(GetExpr {}.{})", self.object.pretty_print(), self.property)
     }
 }
 
 impl PrettyPrinter for SetExpr {
     fn pretty_print(&self) -> String {
         format!(
-            "(SetExpr {}.{} = {})",
+            "(SetExpr {}.{} <- {})",
             self.object.pretty_print(),
             self.property,
             self.value.pretty_print()
-        ) 
+        )
     }
 }
 

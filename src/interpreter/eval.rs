@@ -47,12 +47,7 @@ impl Eval for Interpreter {
                     BinaryOperator::Minus => arithmetic_op(&a, &b, |a, b| Value::Number(a - b)),
                     BinaryOperator::Plus => match (&a, &b) {
                         (Value::Number(a), Value::Number(b)) => Ok(Value::Number(a + b)),
-                        (Value::String(a), Value::String(b)) => {
-                            Ok(Value::String(format!("{}{}", a, b)))
-                        }
-                        (Value::String(_), _) => Err(EvalError::UnexpectedStringConcatOperand(b)),
-                        (_, Value::String(_)) => Err(EvalError::UnexpectedStringConcatOperand(a)),
-                        _ => Err(EvalError::UnexpectedBinaryOperatorOperands()),
+                        (_, _) => Ok(Value::String(format!("{}{}", a, b))),
                     },
                     BinaryOperator::Slash => arithmetic_op(&a, &b, |a, b| Value::Number(a / b)),
                     BinaryOperator::Star => arithmetic_op(&a, &b, |a, b| Value::Number(a * b)),
@@ -146,7 +141,6 @@ impl Eval for Interpreter {
                         return Err(EvalError::UndefinedProperty(get_expr.property.name));
                     }
                 }
-                
                 Err(EvalError::OnlyInstancesHaveProperties())
             }
             Expr::Set(set_expr) => {
@@ -163,7 +157,7 @@ impl Eval for Interpreter {
             Expr::This(this_expr) => {
                 if let Some(this) = self.lookup_variable(env, &this_expr.identifier) {
                     return Ok(this);
-                }   
+                }
 
                 Ok(Value::Nil)
             }

@@ -8,7 +8,6 @@ pub type EvalResult<T> = Result<T, EvalError>;
 pub enum EvalError {
     UnexpectedUnaryOperatorOperand(UnaryOperator, Value),
     UnexpectedBinaryOperatorOperands(),
-    UnexpectedStringConcatOperand(Value),
     UndefinedVariable(IdentifierHandle),
     ValueNotCallable(),
     WrongNumberOfArgs(usize, usize),
@@ -26,9 +25,6 @@ impl fmt::Display for EvalError {
                 "unexpected operand type for operator: '{:?}' found '{:?}', expected a number",
                 op, val
             ),
-            EvalError::UnexpectedStringConcatOperand(val) => {
-                write!(f, "cannot concatenate a string with {:?}", val)
-            }
             EvalError::UndefinedVariable(id) => write!(f, "Undefined variable: '{}'", id),
             EvalError::UnexpectedBinaryOperatorOperands() => {
                 write!(f, "Unexpected binary operator operands")

@@ -1,3 +1,11 @@
+
+class IteratorResult {
+  init(value, done) {
+    this.value = value;
+    this.done = done;
+  }
+}
+
 class ListNode {
   init(value) {
     this.value = value;
@@ -50,40 +58,56 @@ class List {
 
       fun next() {
           if (node == nil) {
-              return nil;
+              return IteratorResult(nil, true);
           }
 
           var val = node.value;
           node = node.next;
           
-          return val;
+          return IteratorResult(val, false);
       }
 
       return next;
   }
-}
 
-var pow_2_52 = 4503599627370496; // 2 ** 52
-
-fun round(x) {
-  if (x > 0) {
-    return (x + pow_2_52) - pow_2_52;
+  forEach(fn) {
+    var next = this.iter();
+    for (var elem = next(); !elem.done; elem = next()) {
+      fn(elem.value);
+    }
   }
 
-  return (x - pow_2_52) + pow_2_52;
-}
+  map(fn) {
+    var new_list = List();
 
-fun floor(x) {
-  var floored = round(x);
-  if (x - floored < 0) {
-    floored = floored - 1;
+    this.forEach(fun (val) {
+      new_list.push(fn(val));
+    });
+
+    return new_list;
   }
 
-  return floored;
-}
+  reduce(fn, start) {
+    var prev = start;
 
-fun mod(x, m) {
-  return x - floor(x / m) * m;
+    this.forEach(fun (val) {
+      prev = fn(prev, val);
+    });
+
+    return prev;
+  }
+
+  join(separator) {
+    var first = true;
+    return this.reduce(fun (prev, curr) {
+      if (first) {
+        first = false;
+        return curr;
+      }
+
+      return prev + separator + curr;
+    }, "");
+  }
 }
 
 fun time(fn) {
@@ -92,37 +116,24 @@ fun time(fn) {
     return (clock() - t1) * 1000; //ms
 }
 
-class Sieve {
-    init() {
-        this.primes = List();
-        this.primes.push(2);
-    }
+fun range(from, to, step) {
 
-    isPrime(n) {
-        if (n < 2) return false;
-        if (n == 2) return true;
-        if (mod(n, 2) == 0) return false;
+  var rng = List();
+  
+  if (step <= 0) return rng;
 
-        var next = this.primes.iter();
+  for (var i = from; i <= to; i = i + step) {
+    rng.push(i);
+  }
 
-        for (var p = next(); p != nil and p * p <= n; p = next()) {
-            if (mod(n, p) == 0) return false;
-        }
-
-        this.primes.push(n);
-        return true;
-    }
-
+  return rng;
 }
 
-fun findPrimes() {
-    var sieve = Sieve();
 
-    for (var i = 1; i <= 10000; i = i + 1) {
-        sieve.isPrime(i);
-    }
-
-    print sieve.primes.length();
+fun sum(list) {
+  return list.reduce(fun(prev, curr) { return prev + curr; }, 0);
 }
 
-print time(findPrimes);
+var nums = range(1, 10, 1).map(fun(n) { return n * n; }); 
+
+print nums.join(" + ") + " = " + sum(nums);

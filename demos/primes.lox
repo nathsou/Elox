@@ -1,0 +1,102 @@
+class ListNode {
+  init(value) {
+    this.value = value;
+    this.next = nil;
+  }
+}
+
+class List {
+  init() {
+    this.head = nil;
+    this.tail = nil;
+    this._length = 0;
+  }
+
+  push(value) {
+    var node = ListNode(value);
+    if (this.head == nil) {
+      this.head = node;
+      this.tail = node;
+    } else {
+      this.tail.next = node;
+      this.tail = node;
+    }
+
+    this._length = this._length + 1;
+
+    return this;
+  }
+
+  nth(n) {
+    if (n >= this._length) return nil;
+
+    var node = this.head;
+
+    for (var i = 0; i < n; i = i + 1) {
+        node = node.next;
+    }
+
+    return node.value;
+  }
+
+  length() {
+    return this._length;
+  }
+
+  iter() {
+    var node = this.head;
+
+      fun next() {
+          if (node == nil) {
+              return nil;
+          }
+
+          var val = node.value;
+          node = node.next;
+          
+          return val;
+      }
+
+      return next;
+  }
+}
+
+fun time(fn) {
+    var t1 = clock();
+    fn();
+    return (clock() - t1) * 1000; //ms
+}
+
+class Sieve {
+    init() {
+        this.primes = List();
+        this.primes.push(2);
+    }
+
+    isPrime(n) {
+        if (n < 2) return false;
+        if (n == 2) return true;
+        if (n % 2 == 0) return false;
+
+        var next = this.primes.iter();
+
+        for (var p = next(); p != nil and p * p <= n; p = next()) {
+            if (n % p == 0) return false;
+        }
+
+        this.primes.push(n);
+        return true;
+    }
+}
+
+fun findPrimes() {
+    var sieve = Sieve();
+
+    for (var i = 1; i <= 1000; i = i + 1) {
+        sieve.isPrime(i);
+    }
+
+    print sieve.primes.length();
+}
+
+print time(findPrimes);

@@ -1,23 +1,14 @@
-
-fun digit2str(d) {
-  if (d == 0) return "0";
-  if (d == 1) return "1";
-  if (d == 2) return "2";
-  if (d == 3) return "3";
-  if (d == 4) return "4";
-  if (d == 5) return "5";
-  if (d == 6) return "6";
-  if (d == 7) return "7";
-  if (d == 8) return "8";
-  if (d == 9) return "9";
-}
-
 fun abs(x) {
-  if (x < 0) return -x;
-  return x;
+    if (x > 0) {
+        return x;
+    }
+
+    return -x;
 }
 
 fun pow(a, exponent) {
+    if (exponent == 0) return 1;
+
     var p = a;
     for (var i = 1; i < exponent; i = i + 1) {
         p = p * a;
@@ -26,125 +17,49 @@ fun pow(a, exponent) {
     return p;
 }
 
-fun sqrt(x) {
-    var eps = 0.0000001;
-    var guess = x;
-    var delta = 1 / 0;
-
-    while (delta > eps) {
-        var new_guess = (guess + x / guess) / 2;
-        delta = abs(new_guess - guess);
-        guess = new_guess;
-    }
-
-    return guess;
-}
-
-var pow_2_52 = 4503599627370496; // 2 ** 52
-
-fun round(x) {
-  if (x > 0) {
-    return (x + pow_2_52) - pow_2_52;
-  }
-
-  return (x - pow_2_52) + pow_2_52;
-}
-
-fun floor(x) {
-  var floored = round(x);
-  if (x - floored < 0) {
-    floored = floored - 1;
-  }
-
-  return floored;
-}
-
-fun mod(x, m) {
-  return x - floor(x / m) * m;
-}
-
-fun int2str_radix(num, base) {
-  if (num == 0) return "0";
-
-  var s = "";
-  var sign = "";
-  if (num < 0) sign = "-";
-
-  num = floor(abs(num));
-
-  for (var n = num; n >= 1; n = n / base) {
-    var digit = mod(floor(n), base);
-    if (digit < 0) digit = base + digit;
-    s = digit2str(digit) + s;
-  }
-
-  return sign + s;
-}
-
-fun int2str(num) {
-  return int2str_radix(num, 10);
-}
-
-fun num2str_radix(num, base) {  
-  var int = floor(num);
-  var frac = num - int;
-
-  if (frac == 0) return int2str(num);
-
-  while (mod(frac, 1) != 0) {
-    frac = frac * base;
-  }
-
-  return int2str_radix(int, base) + "." + int2str_radix(frac, base);
-}
-
-fun num2str(num) {  
-  return num2str_radix(num, 10);
-}
-
 fun time(fn) {
     var t1 = clock();
     fn();
     return (clock() - t1) * 1000; //ms
 }
 
-fun ordinal_indicator(n) {
-  var m = mod(n, 100);
-  if (m >= 10 and m <= 20) return "th";
-  m = mod(n, 10);
-  if (m > 3) return "th";
-  if (m == 1) return "st";
-  if (m == 2) return "nd";
-  if (m == 3) return "rd";
-  return "th";
-}
-
-fun rand_generator(a, c, m, seed) {
-  fun next() {
-    seed = mod(a * seed + c, m);
-    return seed / m;
+class PRNG {
+  init(seed) {
+    this.a = 25214903917;
+    this.c = 11;
+    this.m = 281474976710656;
+    this.seed = seed;
   }
 
-  return next;
+  next() {
+    this.seed = (this.a * this.seed + this.c) % this.m;
+    return this.seed / this.m;
+  }
 }
 
-fun dist(x1, y1, x2, y2) {
-  return sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2));
+class Point {
+  init(x, y) {
+    this.x = x;
+    this.y = y;
+  }
+
+  distSq(to) {
+    return pow(to.x - this.x, 2) + pow(to.y - this.y, 2);
+  }
 }
 
-fun dist_sq(x1, y1, x2, y2) {
-  return pow(x2 - x1, 2) + pow(y2 - y1, 2);
-}
-
-fun compute_pi(iters) {
-  var rand = rand_generator(25214903917, 11, pow(2, 48), clock() * 1000);
+fun computePi(iters) {
+  var rand = PRNG(clock() * 1000);
   var inside_circle = 0;
+  var center = Point(0, 0);
 
   for (var i = 0; i < iters; i = i + 1) {
-    var x = (rand() * 2) - 1;
-    var y = (rand() * 2) - 1;
+    var p = Point(
+      (rand.next() * 2) - 1,
+      (rand.next() * 2) - 1
+    );
 
-    if (dist_sq(x, y, 0, 0) < 1) {
+    if (p.distSq(center) < 1) {
       inside_circle = inside_circle + 1; 
     }
   }
@@ -156,12 +71,12 @@ fun main() {
   var pi;
 
   fun calc_pi() {
-    pi = compute_pi(pow(10,5));
+    pi = computePi(100000);
   }
 
-  var took = floor(time(calc_pi));
+  var took = time(calc_pi);
 
-  print "pi ~ " + num2str(pi) + " took " + num2str(took) + " ms";
+  print "pi ~ " + pi + " took " + took + " ms";
 }
 
 main();

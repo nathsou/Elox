@@ -74,7 +74,6 @@ impl Lox {
                         println!("{}", e);
                     }
                 }
-
             }
             Err(e) => {
                 self.had_error = true;

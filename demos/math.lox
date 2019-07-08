@@ -1,11 +1,73 @@
 
-fun pow(a, exponent) {
+fun integer_power(a, exponent) {
+    if (exponent == 0) return 1;
+
     var p = a;
     for (var i = 1; i < exponent; i = i + 1) {
         p = p * a;
     }
 
     return p;
+}
+
+fun log(x) {
+    var numerator = (x - 1) / (x + 1);
+    var denom = 3;
+    var num_sq = numerator * numerator;
+    var sum = numerator;
+
+    for (var i = 0; i < 10; i = i + 1) {
+        numerator = numerator * num_sq;
+        sum = sum + numerator / denom;
+        denom = denom + 2;
+    }
+
+    return 2 * sum;
+}
+
+fun exp(x) {
+    var sum = 1 + x;
+    var denom = 2;
+    var x_pow = x * x;
+
+    for (var i = 3; i < 21; i = i + 1) {
+        sum = sum + x_pow / denom;
+        x_pow = x_pow * x;
+        denom = denom * i;
+    }
+
+    return sum; 
+}
+
+fun pow(a, exponent) {
+    var frac = exponent % 1;
+    var int_part = integer_power(a, exponent - frac);
+
+    if (frac == 0) return int_part;
+
+    return int_part * exp(frac * log(a));
+}
+
+fun sin(x) {
+    x = x % 6.2831853072;
+    var denom = 6;
+    var x_sq = x * x;
+    var x_pow = x_sq * x;
+    var sign = -1;
+    var sum = x;
+    
+    for (var n = 3; n < 22; n = n + 2) {
+        sum = sum + sign * (x_pow / denom);
+        sign = -sign;
+        x_pow = x_pow * x_sq;
+        denom = denom * (n + 1) * (n + 2);
+    }
+
+    return sum;
+}
+
+fun cos(x) {
+    return sin(x + 1.5707963268);
 }
 
 fun sqrt(x) {
@@ -15,6 +77,24 @@ fun sqrt(x) {
 
     while (delta > eps) {
         var new_guess = (guess + x / guess) / 2;
+        delta = abs(new_guess - guess);
+        guess = new_guess;
+    }
+
+    return guess;
+}
+
+fun deriv(f, x, eps) {
+    return (f(x + eps) - f(x - eps)) / (2 * eps);
+}
+
+fun findRoot(f, near) {
+    var eps = 0.0000001;
+    var guess = near;
+    var delta = 1 / 0;
+
+    while (delta > eps) {
+        var new_guess = guess - f(guess) / deriv(f, guess, eps);
         delta = abs(new_guess - guess);
         guess = new_guess;
     }
@@ -36,14 +116,18 @@ fun time(fn) {
     return (clock() - t1) * 1000; // ms
 }
 
-fun benchmark_sqrt(N) {
-    fun bench() {
-        for (var i = 0; i < N; i = i + 1) {
-            sqrt(i);
-        }
-    }
+// fun benchmark_sqrt(N) {
+//     fun bench() {
+//         for (var i = 0; i < N; i = i + 1) {
+//             sqrt(i);
+//         }
+//     }
 
-    return time(bench) / N;
-}
+//     return time(bench) / N + " ms / sqrt";
+// }
 
-print benchmark_sqrt(100000);
+// print benchmark_sqrt(100000);
+
+var pi = 2 * findRoot(fun(x) { return sin(x) - 1; }, 1);
+
+print pi;

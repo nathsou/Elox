@@ -33,7 +33,6 @@ impl Identifier {
 }
 
 impl IdentifierHandlesGenerator {
-
     pub fn new() -> IdentifierHandlesGenerator {
         let mut handles = FnvHashMap::default();
 
@@ -73,7 +72,6 @@ impl IdentifierHandlesGenerator {
 
         return handle;
     }
-
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Copy, Debug)]
