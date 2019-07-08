@@ -28,6 +28,8 @@ pub enum ParserError {
     ExpectedRightBraceAfterClassBody(),
     ExpectedPropertyNameAfterDot(),
     ExpectedMethodDeclarationInClass(IdentifierHandle),
+    ExpectedSuperclassName(),
+    ExpectedSuperclassMethodName(),
 }
 
 impl fmt::Display for ParserError {
@@ -76,6 +78,12 @@ impl fmt::Display for ParserError {
             }
             ParserError::ExpectedMethodDeclarationInClass(class_id) => {
                 write!(f, "Expected method declaration in class: {}", class_id)
+            }
+            ParserError::ExpectedSuperclassName() => {
+                write!(f, "Expected superclass name")
+            }
+            ParserError::ExpectedSuperclassMethodName() => {
+                write!(f, "Expected superclass method name")
             }
         }
     }

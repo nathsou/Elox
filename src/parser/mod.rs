@@ -30,6 +30,10 @@ impl Identifier {
     pub fn init() -> IdentifierHandle {
         1
     }
+
+    pub fn super_() -> IdentifierHandle {
+        2
+    }
 }
 
 impl IdentifierHandlesGenerator {
@@ -38,12 +42,21 @@ impl IdentifierHandlesGenerator {
 
         handles.insert(std::string::String::from("this"), Identifier::this());
         handles.insert(std::string::String::from("init"), Identifier::init());
+        handles.insert(std::string::String::from("super"), Identifier::super_());
 
         IdentifierHandlesGenerator {
             next_id_handle: handles.len(),
             handles,
             next_use_handle: 0,
         }
+    }
+
+    fn next_with_name(&mut self, name: &str) -> IdentifierUse {
+        IdentifierUse::new(self.by_name(name), self.next_use_handle())
+    }
+
+    fn next_with_handle(&mut self, name: IdentifierHandle) -> IdentifierUse {
+        IdentifierUse::new(name, self.next_use_handle())
     }
 
     fn next_id_handle(&mut self) -> IdentifierHandle {
@@ -176,6 +189,18 @@ impl<'a> Parser<'a> {
 
     fn class_declaration(&mut self) -> ParserResult<Stmt> {
         if let Some(name) = self.consume_identifier() {
+            let mut superclass = None;
+
+            if self.consume(Less) {
+                if let Some(parent_class) = self.consume_identifier() {
+                    superclass = Some(VarExpr {
+                        identifier: parent_class,
+                    });
+                } else {
+                    return Err(ParserError::ExpectedSuperclassName());
+                }
+            }
+
             if self.consume(LeftBrace) {
                 let mut methods = Vec::new();
 
@@ -193,7 +218,7 @@ impl<'a> Parser<'a> {
                     return Err(ParserError::ExpectedRightBraceAfterClassBody());
                 }
 
-                return Ok(ClassDeclStmt::to_stmt(name, methods));
+                return Ok(ClassDeclStmt::to_stmt(name, superclass, methods));
             } else {
                 return Err(ParserError::ExpectedLeftBraceBeforeClassBody());
             }
@@ -728,19 +753,23 @@ impl<'a> Parser<'a> {
                     return Err(ParserError::UnmatchingClosingParen());
                 }
             }
-            Identifier(name) => {
-                return Ok(VarExpr::new(IdentifierUse::new(
-                    self.identifiers.by_name(&name),
-                    self.identifiers.next_use_handle(),
-                )))
-            }
+            Identifier(name) => return Ok(VarExpr::new(self.identifiers.next_with_name(&name))),
             Fun => self.function_declaration(),
             This => Ok(Expr::This(ThisExpr {
-                identifier: IdentifierUse::new(
-                    Identifier::this(),
-                    self.identifiers.next_use_handle(),
-                ),
+                identifier: self.identifiers.next_with_handle(Identifier::this()),
             })),
+            Super => {
+                if self.consume(Dot) {
+                    if let Some(method) = self.consume_identifier() {
+                        return Ok(SuperExpr::new(
+                            self.identifiers.next_with_handle(Identifier::super_()),
+                            method,
+                        ));
+                    }
+                }
+
+                Err(ParserError::ExpectedSuperclassMethodName())
+            }
             _ => Err(ParserError::UnexpectedToken(next)),
         }
     }

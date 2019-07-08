@@ -20,6 +20,7 @@ impl PrettyPrinter for Expr {
             Expr::Get(g) => g.pretty_print(),
             Expr::Set(s) => s.pretty_print(),
             Expr::This(_) => "this".into(),
+            Expr::Super(_) => "super".into(),
         }
     }
 }

@@ -1,7 +1,7 @@
 extern crate fnv;
 
 use super::natives::Clock;
-use super::value::Value;
+use super::value::{Value, CallableValue};
 use crate::parser::{IdentifierHandle, IdentifierHandlesGenerator};
 use fnv::FnvHashMap;
 use std::cell::RefCell;
@@ -47,7 +47,7 @@ impl Environment {
     fn register_natives(&self, identifiers: &mut IdentifierHandlesGenerator) {
         self.define(
             identifiers.by_name("clock"),
-            Value::Callable(Rc::new(Clock)),
+            Value::Callable(CallableValue::Native(Rc::new(Clock))),
         );
     }
 

@@ -1,6 +1,6 @@
 [package]
 name = "lox"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["nathsou <nathsou@users.noreply.github.com>"]
 edition = "2018"
 

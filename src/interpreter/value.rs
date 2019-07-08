@@ -1,7 +1,17 @@
+use super::lox_class::LoxClass;
 use super::lox_callable::LoxCallable;
+use super::lox_function::LoxFunction;
 use super::lox_instance::LoxInstance;
+
 use std::fmt;
 use std::rc::Rc;
+
+#[derive(Clone, Debug)]
+pub enum CallableValue {
+    Function(Rc<LoxFunction>),
+    Class(Rc<LoxClass>),
+    Native(Rc<LoxCallable>),
+}
 
 #[derive(Clone, Debug)]
 pub enum Value {
@@ -9,8 +19,8 @@ pub enum Value {
     String(String),
     Nil,
     Boolean(bool),
-    Callable(Rc<LoxCallable>),
-    Instance(LoxInstance)
+    Callable(CallableValue),
+    Instance(LoxInstance),
 }
 
 impl Value {
@@ -24,7 +34,7 @@ impl Value {
     }
 
     #[inline]
-    pub fn into_callable(self) -> Option<Rc<LoxCallable>> {
+    pub fn into_callable_value(self) -> Option<CallableValue> {
         match self {
             Value::Callable(c) => Some(c),
             _ => None,
@@ -41,6 +51,26 @@ impl Value {
     }
 }
 
+impl CallableValue {
+    pub fn into_callable(self) -> Rc<LoxCallable> {
+        match self {
+            CallableValue::Class(c) => c,
+            CallableValue::Function(f) => f,
+            CallableValue::Native(n) => n
+        }
+    }
+}
+
+impl PartialEq for CallableValue {
+    fn eq(&self, other: &CallableValue) -> bool {
+        match (self, other) {
+            (&CallableValue::Function(ref a), &CallableValue::Function(ref b)) => Rc::ptr_eq(a, b),
+            (&CallableValue::Class(ref a), &CallableValue::Class(ref b)) => Rc::ptr_eq(a, b),
+            _ => false
+        }
+    }
+}
+
 impl PartialEq for Value {
     fn eq(&self, other: &Value) -> bool {
         match (self, other) {
@@ -48,7 +78,7 @@ impl PartialEq for Value {
             (&Value::Number(a), &Value::Number(b)) => a == b,
             (&Value::Boolean(a), &Value::Boolean(b)) => a == b,
             (&Value::Nil, &Value::Nil) => true,
-            (&Value::Callable(ref a), &Value::Callable(ref b)) => Rc::ptr_eq(a, b),
+            (&Value::Callable(ref a), &Value::Callable(ref b)) => a == b,
             _ => false,
         }
     }
@@ -62,7 +92,7 @@ impl fmt::Display for Value {
             Value::Number(nb) => write!(f, "{}", nb),
             Value::String(s) => write!(f, "{}", s),
             Value::Callable(c) => write!(f, "{:?}", c),
-            Value::Instance(i) => write!(f, "<instance {:?}>", i)
+            Value::Instance(i) => write!(f, "<instance {:?}>", i),
         }
     }
 }

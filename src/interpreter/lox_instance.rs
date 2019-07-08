@@ -1,6 +1,6 @@
 use super::lox_class::_LoxClass;
 use super::lox_function::LoxFunction;
-use super::Value;
+use super::value::{CallableValue, Value};
 use crate::parser::IdentifierHandle;
 use fnv::FnvHashMap;
 use std::cell::RefCell;
@@ -28,23 +28,27 @@ impl LoxInstance {
     }
 
     pub fn get(&self, prop: IdentifierHandle) -> Option<Value> {
-
         if let Some(val) = self.instance.borrow().fields.get(&prop) {
             return Some(val.clone());
         }
 
         if let Some(method) = self.find_method(prop) {
-            return Some(Value::Callable(Rc::new(method.bind(self))));
+            return Some(Value::Callable(CallableValue::Function(Rc::new(
+                method.bind(self),
+            ))));
         }
 
         None
     }
 
     pub fn find_method(&self, name: IdentifierHandle) -> Option<Rc<LoxFunction>> {
-        let methods = &self.instance.borrow().mold.methods;
-
-        if let Some(func) = methods.get(&name) {
+        let mold = &self.instance.borrow().mold;
+        if let Some(func) = mold.methods.get(&name) {
             return Some(Rc::clone(func));
+        }
+
+        if let Some(parent) = &mold.superclass {
+            return parent.find_method(name);
         }
 
         None

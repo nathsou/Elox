@@ -1911,6 +1911,7 @@ fun runtimeError(message) {
 }
 
 var parser = Parser();
+var parser = Parser();
 var program = parser.parse();
 
 // Uncomment these two lines to pretty-print the parsed syntax tree

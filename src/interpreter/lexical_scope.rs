@@ -1,20 +1,13 @@
 use super::Interpreter;
 use super::Stmt;
 use crate::parser::{
-    expressions::Expr, expressions::FuncExpr, Identifier, IdentifierHandle, IdentifierUse,
+    expressions::FuncExpr,
+    expressions::{Expr, VarExpr},
+    Identifier, IdentifierHandle, IdentifierUse,
 };
 use fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
 use std::fmt;
-
-pub enum LexicalScopeResolutionError {
-    VariableUsedInItsInitializer,
-    DuplicateVariableDeclaration,
-    ReturnKeywordOutsideFunction,
-    AnonymousClassMethod,
-    CannotUseThisOutsideOfAClass,
-    CannotReturnInsideInitializer,
-}
 
 pub type LexicalScopeResolutionResult = Result<(), LexicalScopeResolutionError>;
 
@@ -37,6 +30,7 @@ pub enum FunctionType {
 pub enum ClassType {
     NotAClass,
     Class,
+    Subclass,
 }
 
 pub struct Resolver<'a> {
@@ -211,6 +205,18 @@ impl LexicallyScoped for Stmt {
                 resolver.declare(class_decl.identifier.name)?;
                 resolver.define(class_decl.identifier.name);
 
+                if let Some(superclass) = &class_decl.superclass {
+                    resolver.class_type = ClassType::Subclass;
+                    if superclass.identifier.name != class_decl.identifier.name {
+                        superclass.resolve(resolver)?;
+                    } else {
+                        return Err(LexicalScopeResolutionError::ClassCannotInheritFromItself);
+                    }
+
+                    resolver.begin_scope();
+                    resolver.define(Identifier::super_());
+                }
+
                 resolver.begin_scope();
                 resolver.define(Identifier::this());
 
@@ -225,8 +231,26 @@ impl LexicallyScoped for Stmt {
                 }
 
                 resolver.end_scope();
+                if let Some(_) = class_decl.superclass {
+                    resolver.end_scope();
+                }
+
                 resolver.class_type = enclosing_class;
 
+                Ok(())
+            }
+        }
+    }
+}
+
+impl LexicallyScoped for VarExpr {
+    fn resolve(&self, resolver: &mut Resolver) -> LexicalScopeResolutionResult {
+        match resolver.get_scoped_identifier_status(&self.identifier.name) {
+            IdentifierStatus::Declared => {
+                Err(LexicalScopeResolutionError::VariableUsedInItsInitializer)
+            }
+            _ => {
+                resolver.resolve_local(&self.identifier);
                 Ok(())
             }
         }
@@ -236,15 +260,7 @@ impl LexicallyScoped for Stmt {
 impl LexicallyScoped for Expr {
     fn resolve(&self, resolver: &mut Resolver) -> LexicalScopeResolutionResult {
         match self {
-            Expr::Var(expr) => match resolver.get_scoped_identifier_status(&expr.identifier.name) {
-                IdentifierStatus::Declared => {
-                    Err(LexicalScopeResolutionError::VariableUsedInItsInitializer)
-                }
-                _ => {
-                    resolver.resolve_local(&expr.identifier);
-                    Ok(())
-                }
-            },
+            Expr::Var(expr) => expr.resolve(resolver),
             Expr::Assign(assignment) => {
                 assignment.expr.resolve(resolver)?;
                 resolver.resolve_local(&assignment.identifier);
@@ -293,8 +309,32 @@ impl LexicallyScoped for Expr {
                 resolver.resolve_local(&this_expr.identifier);
                 Ok(())
             }
+            Expr::Super(super_expr) => match resolver.class_type {
+                ClassType::NotAClass => {
+                    return Err(LexicalScopeResolutionError::CannotUseSuperOutsideAclass)
+                }
+                ClassType::Class => {
+                    return Err(LexicalScopeResolutionError::CannotUseSuperInAClassWithNoSuperClass)
+                }
+                ClassType::Subclass => {
+                    resolver.resolve_local(&super_expr.identifier);
+                    return Ok(());
+                }
+            },
         }
     }
+}
+
+pub enum LexicalScopeResolutionError {
+    VariableUsedInItsInitializer,
+    DuplicateVariableDeclaration,
+    ReturnKeywordOutsideFunction,
+    AnonymousClassMethod,
+    CannotUseThisOutsideOfAClass,
+    CannotReturnInsideInitializer,
+    ClassCannotInheritFromItself,
+    CannotUseSuperOutsideAclass,
+    CannotUseSuperInAClassWithNoSuperClass,
 }
 
 impl fmt::Display for LexicalScopeResolutionError {
@@ -317,6 +357,15 @@ impl fmt::Display for LexicalScopeResolutionError {
             }
             LexicalScopeResolutionError::CannotReturnInsideInitializer => {
                 write!(f, "Cannot return a value inside an initializer")
+            }
+            LexicalScopeResolutionError::ClassCannotInheritFromItself => {
+                write!(f, "A class cannot inherit from itself")
+            }
+            LexicalScopeResolutionError::CannotUseSuperOutsideAclass => {
+                write!(f, "Cannot use 'super' outside of a class")
+            }
+            LexicalScopeResolutionError::CannotUseSuperInAClassWithNoSuperClass => {
+                write!(f, "Cannot use 'super' in a class with no superclass")
             }
         }
     }

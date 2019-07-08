@@ -1,5 +1,5 @@
 use super::eval_result::EvalResult;
-use super::lox_callable::LoxCallable;
+use super::lox_callable::{LoxCallable, LoxCallableType};
 
 use super::lox_function::LoxFunction;
 use super::lox_instance::LoxInstance;
@@ -14,6 +14,7 @@ use std::rc::Rc;
 #[derive(Clone)]
 pub struct _LoxClass {
     pub identifier: IdentifierHandle,
+    pub superclass: Option<Rc<LoxClass>>,
     pub methods: FnvHashMap<IdentifierHandle, Rc<LoxFunction>>,
 }
 
@@ -25,11 +26,13 @@ pub struct LoxClass {
 impl LoxClass {
     pub fn new(
         identifier: IdentifierHandle,
+        superclass: Option<Rc<LoxClass>>,
         methods: FnvHashMap<IdentifierHandle, Rc<LoxFunction>>,
     ) -> LoxClass {
         LoxClass {
             mold: Rc::new(_LoxClass {
                 identifier,
+                superclass,
                 methods,
             }),
         }
@@ -40,6 +43,10 @@ impl LoxClass {
 
         if let Some(func) = methods.get(&name) {
             return Some(Rc::clone(func));
+        }
+
+        if let Some(parent) = &self.mold.superclass {
+            return parent.find_method(name);
         }
 
         None
@@ -67,6 +74,10 @@ impl LoxCallable for LoxClass {
         }
 
         0usize
+    }
+
+    fn type_(&self) -> LoxCallableType {
+        LoxCallableType::Class
     }
 }
 

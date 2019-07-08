@@ -1,5 +1,5 @@
 use super::IdentifierUse;
-use crate::parser::expressions::{Expr, FuncExpr};
+use crate::parser::expressions::{Expr, FuncExpr, VarExpr};
 
 #[derive(Clone)]
 pub enum Stmt {
@@ -112,13 +112,14 @@ impl ReturnStmt {
 #[derive(Clone)]
 pub struct ClassDeclStmt {
     pub identifier: IdentifierUse,
+    pub superclass: Option<VarExpr>,
     pub methods: Vec<FuncExpr>
 }
 
 impl ClassDeclStmt {
-    pub fn to_stmt(identifier: IdentifierUse, methods: Vec<FuncExpr>) -> Stmt {
+    pub fn to_stmt(identifier: IdentifierUse, superclass: Option<VarExpr>, methods: Vec<FuncExpr>) -> Stmt {
         Stmt::ClassDecl(ClassDeclStmt {
-            identifier, methods
+            identifier, superclass, methods
         })
     }
 }

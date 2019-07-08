@@ -1,9 +1,10 @@
 use super::environment::Environment;
 use super::eval_result::{EvalError, EvalResult};
 use super::lox_function::LoxFunction;
-use super::value::Value;
+use super::value::{CallableValue, Value};
 use crate::interpreter::Interpreter;
 use crate::parser::expressions::{BinaryOperator, Expr, Literal, LogicalOperator, UnaryOperator};
+use crate::parser::Identifier;
 use std::ops::Deref;
 use std::rc::Rc;
 
@@ -110,7 +111,8 @@ impl Eval for Interpreter {
                     args.push(self.eval(env, arg)?);
                 }
 
-                if let Some(callable) = callee.into_callable() {
+                if let Some(callable_val) = callee.into_callable_value() {
+                    let callable = callable_val.into_callable();
                     if callable.arity() != args.len() {
                         return Err(EvalError::WrongNumberOfArgs(callable.arity(), args.len()));
                     }
@@ -122,7 +124,7 @@ impl Eval for Interpreter {
             }
             Expr::Func(func_expr) => {
                 let func = LoxFunction::new(func_expr.clone(), env.clone(), false);
-                let f = Value::Callable(Rc::new(func));
+                let f = Value::Callable(CallableValue::Function(Rc::new(func)));
 
                 // if not anonymous
                 if let Some(identifier) = func_expr.name {
@@ -157,6 +159,29 @@ impl Eval for Interpreter {
             Expr::This(this_expr) => {
                 if let Some(this) = self.lookup_variable(env, &this_expr.identifier) {
                     return Ok(this);
+                }
+
+                Ok(Value::Nil)
+            }
+            Expr::Super(super_expr) => {
+                if let Some(&depth) = self.depths.get(&super_expr.identifier.use_handle) {
+                    if let Some(superclass) = env.get(depth, Identifier::super_()) {
+                        if let Some(Value::Instance(instance)) =
+                            env.get(depth - 1, Identifier::this())
+                        {
+                            if let Some(CallableValue::Class(parent)) =
+                                superclass.into_callable_value()
+                            {
+                                if let Some(method) = parent.find_method(super_expr.method.name) {
+                                    return Ok(Value::Callable(CallableValue::Function(Rc::new(
+                                        method.bind(&instance),
+                                    ))));
+                                } else {
+                                    return Err(EvalError::UndefinedProperty(super_expr.method.name));
+                                }
+                            }
+                        }
+                    }
                 }
 
                 Ok(Value::Nil)

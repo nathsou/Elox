@@ -1,139 +1,30 @@
 
-class IteratorResult {
-  init(value, done) {
-    this.value = value;
-    this.done = done;
+class Doughnut {
+  cook() {
+    print "Fry until golden brown.";
   }
 }
 
-class ListNode {
-  init(value) {
-    this.value = value;
-    this.next = nil;
-    this.previous = nil;
+class BostonCream < Doughnut {}
+
+BostonCream().cook();
+
+class A {
+  method() {
+    print "A method";
   }
 }
 
-class List {
-  init() {
-    this.head = nil;
-    this.tail = nil;
-    this._length = 0;
+class B < A {
+  method() {
+    print "B method";
   }
 
-  push(value) {
-    var node = ListNode(value);
-    if (this.head == nil) {
-      this.head = node;
-      this.tail = node;
-    } else {
-      node.previous = this.tail;
-      this.tail.next = node;
-      this.tail = node;
-    }
-
-    this._length = this._length + 1;
-
-    return this;
-  }
-
-  nth(n) {
-    if (n >= this._length) return nil;
-
-    var node = this.head;
-
-    for (var i = 0; i < n; i = i + 1) {
-        node = node.next;
-    }
-
-    return node.value;
-  }
-
-  length() {
-    return this._length;
-  }
-
-  iter() {
-    var node = this.head;
-
-      fun next() {
-          if (node == nil) {
-              return IteratorResult(nil, true);
-          }
-
-          var val = node.value;
-          node = node.next;
-          
-          return IteratorResult(val, false);
-      }
-
-      return next;
-  }
-
-  forEach(fn) {
-    var next = this.iter();
-    for (var elem = next(); !elem.done; elem = next()) {
-      fn(elem.value);
-    }
-  }
-
-  map(fn) {
-    var new_list = List();
-
-    this.forEach(fun (val) {
-      new_list.push(fn(val));
-    });
-
-    return new_list;
-  }
-
-  reduce(fn, start) {
-    var prev = start;
-
-    this.forEach(fun (val) {
-      prev = fn(prev, val);
-    });
-
-    return prev;
-  }
-
-  join(separator) {
-    var first = true;
-    return this.reduce(fun (prev, curr) {
-      if (first) {
-        first = false;
-        return curr;
-      }
-
-      return prev + separator + curr;
-    }, "");
+  test() {
+    super.method();
   }
 }
 
-fun time(fn) {
-    var t1 = clock();
-    fn();
-    return (clock() - t1) * 1000; //ms
-}
+class C < B {}
 
-fun range(from, to, step) {
-
-  var rng = List();
-  
-  if (step <= 0) return rng;
-
-  for (var i = from; i <= to; i = i + step) {
-    rng.push(i);
-  }
-
-  return rng;
-}
-
-
-fun sum(list) {
-  return list.reduce(fun(prev, curr) { return prev + curr; }, 0);
-}
-
-var nums = range(1, 10, 1).map(fun(n) { return n * n; }); 
-
-print nums.join(" + ") + " = " + sum(nums);
+C().test();

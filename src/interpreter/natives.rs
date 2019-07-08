@@ -1,4 +1,4 @@
-use super::lox_callable::LoxCallable;
+use super::lox_callable::{LoxCallable, LoxCallableType};
 use super::value::Value;
 use super::Environment;
 use super::Interpreter;
@@ -24,5 +24,9 @@ impl LoxCallable for Clock {
 
     fn arity(&self) -> usize {
         0
+    }
+
+    fn type_(&self) -> LoxCallableType {
+        LoxCallableType::Function
     }
 }

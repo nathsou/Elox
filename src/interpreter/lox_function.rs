@@ -1,6 +1,6 @@
 use super::eval_result::{EvalError, EvalResult};
 use super::execute::Exec;
-use super::lox_callable::LoxCallable;
+use super::lox_callable::{LoxCallable, LoxCallableType};
 use super::lox_instance::LoxInstance;
 use super::Environment;
 use super::Interpreter;
@@ -77,6 +77,10 @@ impl LoxCallable for LoxFunction {
 
     fn arity(&self) -> usize {
         self.func.params.len()
+    }
+
+    fn type_(&self) -> LoxCallableType {
+        LoxCallableType::Function
     }
 }
 

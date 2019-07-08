@@ -14,6 +14,7 @@ pub enum EvalError {
     CouldNotGetTime(),
     OnlyInstancesHaveProperties(),
     UndefinedProperty(IdentifierHandle),
+    SuperclassMustBeAClass(IdentifierHandle),
     Return(Value),
 }
 
@@ -37,6 +38,7 @@ impl fmt::Display for EvalError {
             EvalError::Return(_) => unreachable!(),
             EvalError::OnlyInstancesHaveProperties() => write!(f, "Only instances have properties"),
             EvalError::UndefinedProperty(id) => write!(f, "Undefined property: {}", id),
+            EvalError::SuperclassMustBeAClass(id) => write!(f, "Superclass must be a class, found: '{}'", id),
         }
     }
 }

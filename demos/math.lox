@@ -131,3 +131,7 @@ fun time(fn) {
 var pi = 2 * findRoot(fun(x) { return sin(x) - 1; }, 1);
 
 print pi;
+
+fun computePi() {
+    
+}

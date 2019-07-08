@@ -3,9 +3,10 @@ use super::eval::Eval;
 use super::lox_class::LoxClass;
 
 use super::lox_function::LoxFunction;
-use super::Value;
+use super::value::{CallableValue, Value};
 use crate::interpreter::eval_result::{EvalError, EvalResult};
 use crate::interpreter::Interpreter;
+use crate::parser::expressions::Expr;
 use crate::parser::statements::Stmt;
 use crate::parser::{Identifier, IdentifierHandle};
 use fnv::FnvHashMap;
@@ -65,7 +66,6 @@ impl Exec for Interpreter {
                 Ok(())
             }
             Stmt::Return(ret_stmt) => {
-
                 let value = if let Some(val) = &ret_stmt.value {
                     self.eval(env, &val)?
                 } else {
@@ -75,20 +75,64 @@ impl Exec for Interpreter {
                 Err(EvalError::Return(value))
             }
             Stmt::ClassDecl(class_decl) => {
-                env.define(class_decl.identifier.name, Value::Nil);
+                let mut superclass = None;
+                if let Some(parent_class) = &class_decl.superclass {
+                    let val = self.eval(env, &Expr::Var(parent_class.clone()))?;
+                    if let Some(callable) = &val.into_callable_value() {
+                        match callable {
+                            CallableValue::Class(c) => {
+                                superclass = Some(Rc::clone(c));
+                            }
+                            _ => {
+                                return Err(EvalError::SuperclassMustBeAClass(
+                                    parent_class.identifier.name,
+                                ))
+                            }
+                        }
+                    } else {
+                        return Err(EvalError::SuperclassMustBeAClass(
+                            parent_class.identifier.name,
+                        ));
+                    }
+                }
+
+                let mut environment = env.clone();
+
+                environment.define(class_decl.identifier.name, Value::Nil);
+
+                if let Some(parent_class) = &superclass {
+                    environment = Environment::new(Some(&environment));
+                    environment.define(
+                        Identifier::super_(),
+                        Value::Callable(CallableValue::Class(Rc::clone(parent_class))),
+                    );
+                }
+
                 let mut methods: FnvHashMap<IdentifierHandle, Rc<LoxFunction>> =
                     FnvHashMap::default();
 
                 for method in &class_decl.methods {
                     let name = method.name.unwrap().name;
-                    let func =
-                        LoxFunction::new(method.clone(), env.clone(), name == Identifier::init());
+                    let func = LoxFunction::new(
+                        method.clone(),
+                        environment.clone(),
+                        name == Identifier::init(),
+                    );
                     methods.insert(name, Rc::new(func));
                 }
 
-                let lox_class = Rc::new(LoxClass::new(class_decl.identifier.name, methods));
-                let callable_class = Value::Callable(lox_class);
-                env.assign(0, class_decl.identifier.name, callable_class.clone());
+                let lox_class = Rc::new(LoxClass::new(
+                    class_decl.identifier.name,
+                    superclass,
+                    methods,
+                ));
+                let callable_class = Value::Callable(CallableValue::Class(lox_class));
+
+                if let Some(_) = &class_decl.superclass {
+                    environment = env.clone();
+                }
+
+                environment.assign(0, class_decl.identifier.name, callable_class.clone());
 
                 Ok(())
             }

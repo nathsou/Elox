@@ -23,6 +23,7 @@ pub enum Expr {
     Get(Box<GetExpr>),
     Set(Box<SetExpr>),
     This(ThisExpr),
+    Super(SuperExpr),
 }
 
 #[derive(Debug, Clone)]
@@ -183,6 +184,21 @@ impl SetExpr {
             object,
             value,
         }))
+    }
+}
+
+#[derive(Clone)]
+pub struct SuperExpr {
+    pub identifier: IdentifierUse,
+    pub method: IdentifierUse,
+}
+
+impl SuperExpr {
+    pub fn new(identifier: IdentifierUse, method: IdentifierUse) -> Expr {
+        Expr::Super(SuperExpr {
+            identifier,
+            method,
+        })
     }
 }
 
