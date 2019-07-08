@@ -3,6 +3,7 @@ pub mod environment;
 mod eval;
 mod eval_result;
 mod execute;
+pub mod host;
 pub mod lexical_scope;
 mod lox_callable;
 mod lox_class;
@@ -15,19 +16,23 @@ use crate::parser::{statements::Stmt, IdentifierUse, IdentifierUseHandle};
 use environment::Environment;
 use eval_result::EvalResult;
 use execute::Exec;
-
 use fnv::FnvHashMap;
 use value::Value;
+use host::Host;
+use std::rc::Rc;
+
 pub struct Interpreter {
     global: Environment,
     depths: FnvHashMap<IdentifierUseHandle, usize>,
+    host: Rc<Host>,
 }
 
 impl Interpreter {
-    pub fn new(env: Environment) -> Interpreter {
+    pub fn new(env: Environment, host: &Rc<Host>) -> Interpreter {
         Interpreter {
             global: env,
             depths: fnv::FnvHashMap::default(),
+            host: Rc::clone(host),
         }
     }
 

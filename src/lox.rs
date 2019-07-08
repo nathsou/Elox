@@ -1,6 +1,7 @@
 use crate::interpreter::Interpreter;
 // use crate::parser::pretty_printer::PrettyPrinter;
 use crate::interpreter::environment::Environment;
+use crate::interpreter::host::Host;
 use crate::interpreter::lexical_scope::Resolver;
 use crate::parser::{IdentifierHandlesGenerator, Parser};
 use crate::scanner::Scanner;
@@ -9,14 +10,16 @@ use std::fs;
 use std::io;
 use std::path::Path;
 use std::process;
+use std::rc::Rc;
 
 pub struct Lox {
     had_error: bool,
+    host: Rc<Host>,
 }
 
 impl Lox {
-    pub fn new() -> Lox {
-        Lox { had_error: false }
+    pub fn new(host: Host) -> Lox {
+        Lox { had_error: false, host: Rc::new(host) }
     }
 
     pub fn run_file(&mut self, path: &Path) {
@@ -44,12 +47,12 @@ impl Lox {
         }
     }
 
-    fn run(&mut self, source: &String) {
+    pub fn run(&mut self, source: &str) {
         let scanner = Scanner::new(source.chars().peekable());
         let mut identifiers = IdentifierHandlesGenerator::new();
         let global = Environment::with_natives(None, &mut identifiers);
         let mut parser = Parser::new(scanner.peekable(), identifiers);
-        let mut interpreter = Interpreter::new(global);
+        let mut interpreter = Interpreter::new(global, &self.host);
         let mut resolver = Resolver::new(&mut interpreter);
 
         match parser.parse() {

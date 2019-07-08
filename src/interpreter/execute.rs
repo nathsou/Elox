@@ -21,7 +21,8 @@ impl Exec for Interpreter {
         match stmt {
             Stmt::Print(ps) => {
                 let val = self.eval(env, &ps.value)?;
-                println!("{}", val);
+                // println!("{}", val);
+                (self.host.print)(format!("{}", val));
                 Ok(())
             }
             Stmt::Expr(expr) => {
