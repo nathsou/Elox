@@ -1,0 +1,10 @@
+{
+    "compilerOptions": {
+        "module": "esNext",
+        "target": "es5",
+        "noImplicitAny": true
+    },
+    "exclude": [
+        "node_modules"
+    ]
+}

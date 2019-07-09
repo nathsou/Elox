@@ -9,7 +9,7 @@ use crate::interpreter::host::Host;
 use lox::Lox;
 use wasm_bindgen::prelude::*;
 
-#[wasm_bindgen(raw_module = "../www/index.js")]
+#[wasm_bindgen(raw_module = "../web/index.js")]
 extern "C" {
     pub fn log(s: String);
     pub fn clock() -> f64;

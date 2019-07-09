@@ -19,7 +19,10 @@ pub struct Lox {
 
 impl Lox {
     pub fn new(host: Host) -> Lox {
-        Lox { had_error: false, host: Rc::new(host) }
+        Lox {
+            had_error: false,
+            host: Rc::new(host),
+        }
     }
 
     pub fn run_file(&mut self, path: &Path) {
@@ -68,19 +71,19 @@ impl Lox {
                             Ok(()) => {}
                             Err(err) => {
                                 self.had_error = true;
-                                println!("{}", err);
+                                (self.host.print)(format!("{}", err));
                             }
                         }
                     }
-                    Err(e) => {
+                    Err(err) => {
                         self.had_error = true;
-                        println!("{}", e);
+                        (self.host.print)(format!("{}", err));
                     }
                 }
             }
-            Err(e) => {
+            Err(err) => {
                 self.had_error = true;
-                println!("{}", e);
+                (self.host.print)(format!("{}", err));
             }
         }
     }

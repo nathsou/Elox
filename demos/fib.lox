@@ -16,4 +16,8 @@ fun bench() {
   }
 }
 
-print time(bench);
+fun floor(x) {
+  return x - x % 1;
+}
+
+print "took " + floor(time(bench)) + "ms";

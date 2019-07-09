@@ -116,22 +116,18 @@ fun time(fn) {
     return (clock() - t1) * 1000; // ms
 }
 
-// fun benchmark_sqrt(N) {
-//     fun bench() {
-//         for (var i = 0; i < N; i = i + 1) {
-//             sqrt(i);
-//         }
-//     }
+fun benchmark_sqrt(N) {
+    fun bench() {
+        for (var i = 0; i < N; i = i + 1) {
+            sqrt(i);
+        }
+    }
 
-//     return time(bench) / N + " ms / sqrt";
-// }
+    return time(bench) / N + " ms / sqrt";
+}
 
-// print benchmark_sqrt(100000);
+print benchmark_sqrt(100000);
 
 var pi = 2 * findRoot(fun(x) { return sin(x) - 1; }, 1);
 
 print pi;
-
-fun computePi() {
-    
-}

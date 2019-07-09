@@ -1,0 +1,47 @@
+<html>
+
+<head>
+    <title>Lox</title>
+
+    <style>
+        #run {
+            color: black;
+            background-color: white;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 0px;
+            border: 2px solid black;
+            margin-bottom: 3px;
+            height: 30px;
+        }
+
+        #editor {
+            width: 55%;
+            height: 100%;
+            left: 0;
+            position: fixed;
+            border-right: 2px solid black;
+            border-top: 2px solid black;
+            height: calc(100% - 45px);
+        }
+
+        #result {
+            width: 40%;
+            height: calc(100% - 45px);
+            right: 0;
+            position: fixed;
+        }
+    </style>
+</head>
+
+<body>
+    <script src='./elox.js'></script>
+
+    <button id='run'>Run</button>
+
+    <div id='editor'></div>
+
+    <div id='result'></div>
+</body>
+
+</html>
