@@ -1,18 +1,20 @@
 extern crate fnv;
 
+use super::lox_array::create_lox_array_class;
 use super::natives::Clock;
-use super::value::{Value, CallableValue};
-use crate::parser::{IdentifierHandle, IdentifierHandlesGenerator};
+use super::value::{CallableValue, Value};
+use crate::parser::{Identifier, IdentifierHandle, IdentifierHandlesGenerator};
 use fnv::FnvHashMap;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Environment {
     // we need multiple mutable refs to the parent scope in multiple same-level scopes -> Rc<RefCell>
     pub current: Rc<RefCell<InnerEnv>>,
 }
 
+#[derive(Debug)]
 pub struct InnerEnv {
     pub values: FnvHashMap<IdentifierHandle, Value>,
     pub parent: Option<Environment>,
@@ -48,6 +50,14 @@ impl Environment {
         self.define(
             identifiers.by_name("clock"),
             Value::Callable(CallableValue::Native(Rc::new(Clock))),
+        );
+
+        self.define(
+            Identifier::array(),
+            Value::Callable(CallableValue::Class(Rc::new(create_lox_array_class(
+                &self,
+                identifiers,
+            )))),
         );
     }
 

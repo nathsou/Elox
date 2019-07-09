@@ -3,6 +3,7 @@ use std::default::Default;
 
 pub struct Host {
     pub print: Box<Fn(String)>,
+    pub error: Box<Fn(String)>,
     pub clock: Box<Fn() -> Option<f64>>,
 }
 
@@ -18,6 +19,9 @@ impl Default for Host {
                 }
 
                 None
+            }),
+            error: Box::new(|err| {
+                println!("Error: {}", err);
             }),
         }
     }

@@ -1,32 +1,22 @@
 
-class Doughnut {
-  cook() {
-    print "Fry until golden brown.";
-  }
+var a = Array();
+
+fun bench(n) {
+    for (var i = 0; i < n; i = i + 1) {
+       a.push(i); 
+    }
+
+    for (var i = 0; i < n; i = i + 1) {
+       a.get(i); 
+    }
 }
 
-class BostonCream < Doughnut {}
-
-BostonCream().cook();
-
-class A {
-  method() {
-    print "A method";
-  }
+fun time(fn) {
+    var t1 = clock();
+    fn();
+    return (clock() - t1) * 1000;
 }
 
-class B < A {
-  method() {
-    print "B method";
-  }
-
-  test() {
-    super.method();
-  }
-}
-
-class C < B {}
-
-C().test();
-
-print clock();
+print time(fun() {
+    bench(100000);
+});

@@ -1,5 +1,5 @@
 use super::eval_result::EvalResult;
-use super::lox_callable::{LoxCallable, LoxCallableType};
+use super::lox_callable::LoxCallable;
 
 use super::lox_function::LoxFunction;
 use super::lox_instance::LoxInstance;
@@ -21,6 +21,7 @@ pub struct _LoxClass {
 #[derive(Debug)]
 pub struct LoxClass {
     pub mold: Rc<_LoxClass>,
+    use_natives: bool,
 }
 
 impl LoxClass {
@@ -35,6 +36,22 @@ impl LoxClass {
                 superclass,
                 methods,
             }),
+            use_natives: false
+        }
+    }
+
+    pub fn new_native(
+        identifier: IdentifierHandle,
+        superclass: Option<Rc<LoxClass>>,
+        methods: FnvHashMap<IdentifierHandle, Rc<LoxFunction>>,
+    ) -> LoxClass {
+        LoxClass {
+            mold: Rc::new(_LoxClass {
+                identifier,
+                superclass,
+                methods,
+            }),
+            use_natives: false
         }
     }
 
@@ -57,12 +74,16 @@ impl LoxCallable for LoxClass {
     fn call(
         &self,
         interpreter: &Interpreter,
-        env: &Environment,
+        _env: &Environment,
         args: Vec<Value>,
     ) -> EvalResult<Value> {
-        let instance = LoxInstance::new(Rc::clone(&self.mold));
+        let instance = if self.use_natives { LoxInstance::new(Rc::clone(&self.mold)) } else {
+            LoxInstance::new_native(Rc::clone(&self.mold))
+        };
+        
         if let Some(initializer) = self.find_method(Identifier::init()) {
-            initializer.bind(&instance).call(interpreter, env, args)?;
+            let bound_init = initializer.bind(&instance);
+            bound_init.call(interpreter, &bound_init.env, args)?;
         }
 
         Ok(Value::Instance(instance))
@@ -74,10 +95,6 @@ impl LoxCallable for LoxClass {
         }
 
         0usize
-    }
-
-    fn type_(&self) -> LoxCallableType {
-        LoxCallableType::Class
     }
 }
 

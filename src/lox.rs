@@ -71,19 +71,19 @@ impl Lox {
                             Ok(()) => {}
                             Err(err) => {
                                 self.had_error = true;
-                                (self.host.print)(format!("{}", err));
+                                (self.host.error)(format!("{}", err));
                             }
                         }
                     }
                     Err(err) => {
                         self.had_error = true;
-                        (self.host.print)(format!("{}", err));
+                        (self.host.error)(format!("{}", err));
                     }
                 }
             }
             Err(err) => {
                 self.had_error = true;
-                (self.host.print)(format!("{}", err));
+                (self.host.error)(format!("{}", err));
             }
         }
     }

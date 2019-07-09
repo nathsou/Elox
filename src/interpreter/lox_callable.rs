@@ -3,11 +3,6 @@ use super::Environment;
 use super::EvalResult;
 use super::Interpreter;
 
-pub enum LoxCallableType {
-    Function,
-    Class,
-}
-
 pub trait LoxCallable: std::fmt::Debug {
     fn call(
         &self,
@@ -17,6 +12,4 @@ pub trait LoxCallable: std::fmt::Debug {
     ) -> EvalResult<Value>;
 
     fn arity(&self) -> usize;
-
-    fn type_(&self) -> LoxCallableType; 
 }

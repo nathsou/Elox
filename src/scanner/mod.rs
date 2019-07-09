@@ -96,6 +96,8 @@ impl<'a> Scanner<'a> {
             Some(')') => Ok(self.token(RightParen)),
             Some('{') => Ok(self.token(LeftBrace)),
             Some('}') => Ok(self.token(RightBrace)),
+            Some('[') => Ok(self.token(LeftBracket)),
+            Some(']') => Ok(self.token(RightBracket)),
             Some(',') => Ok(self.token(Comma)),
             Some('.') => Ok(self.token(Dot)),
             Some('-') => Ok(self.token(Minus)),

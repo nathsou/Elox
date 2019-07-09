@@ -12,6 +12,7 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen(raw_module = "../web/index.js")]
 extern "C" {
     pub fn log(s: String);
+    pub fn error(err: String);
     pub fn clock() -> f64;
 }
 
@@ -20,6 +21,9 @@ pub fn run(source: &str) {
     let host = Host {
         print: Box::new(|msg| {
             log(msg);
+        }),
+        error: Box::new(|err| {
+            error(err);
         }),
         clock: Box::new(|| Some(clock())),
     };

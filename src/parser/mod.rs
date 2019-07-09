@@ -34,6 +34,10 @@ impl Identifier {
     pub fn super_() -> IdentifierHandle {
         2
     }
+
+    pub fn array() -> IdentifierHandle {
+        3
+    } 
 }
 
 impl IdentifierHandlesGenerator {
@@ -43,6 +47,7 @@ impl IdentifierHandlesGenerator {
         handles.insert(std::string::String::from("this"), Identifier::this());
         handles.insert(std::string::String::from("init"), Identifier::init());
         handles.insert(std::string::String::from("super"), Identifier::super_());
+        handles.insert(std::string::String::from("Array"), Identifier::array());
 
         IdentifierHandlesGenerator {
             next_id_handle: handles.len(),

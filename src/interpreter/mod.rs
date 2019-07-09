@@ -5,6 +5,7 @@ mod eval_result;
 mod execute;
 pub mod host;
 pub mod lexical_scope;
+pub mod lox_array;
 mod lox_callable;
 mod lox_class;
 mod lox_function;
@@ -17,9 +18,9 @@ use environment::Environment;
 use eval_result::EvalResult;
 use execute::Exec;
 use fnv::FnvHashMap;
-use value::Value;
 use host::Host;
 use std::rc::Rc;
+use value::Value;
 
 pub struct Interpreter {
     global: Environment,
