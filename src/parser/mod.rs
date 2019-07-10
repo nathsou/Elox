@@ -55,6 +55,10 @@ impl Identifier {
     pub fn set() -> IdentifierHandle {
         7
     }
+
+    pub fn str_() -> IdentifierHandle {
+        8
+    }
 }
 
 pub type IdentifierNames = Vec<std::string::String>;
@@ -62,10 +66,10 @@ pub type IdentifierNames = Vec<std::string::String>;
 impl IdentifierHandlesGenerator {
     pub fn new() -> IdentifierHandlesGenerator {
         let mut handle_gen = IdentifierHandlesGenerator {
-            next_id_handle: 8,
+            next_id_handle: 9,
             handles: FnvHashMap::default(),
             next_use_handle: 0,
-            names: Vec::with_capacity(8),
+            names: Vec::with_capacity(9),
         };
 
         handle_gen.insert(std::string::String::from("this"), Identifier::this());
@@ -79,6 +83,7 @@ impl IdentifierHandlesGenerator {
         );
         handle_gen.insert(std::string::String::from("#get"), Identifier::get());
         handle_gen.insert(std::string::String::from("#set"), Identifier::set());
+        handle_gen.insert(std::string::String::from("#str"), Identifier::str_());
 
         handle_gen
     }

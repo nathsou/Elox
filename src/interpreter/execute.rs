@@ -7,7 +7,7 @@ use super::value::{CallableValue, Value};
 use crate::interpreter::eval_result::{EvalError, EvalResult};
 use crate::interpreter::Interpreter;
 use crate::parser::expressions::Expr;
-use crate::parser::statements::{Stmt};
+use crate::parser::statements::Stmt;
 use crate::parser::{Identifier, IdentifierHandle};
 use fnv::FnvHashMap;
 use std::rc::Rc;
@@ -21,7 +21,7 @@ impl Exec for Interpreter {
         match stmt {
             Stmt::Print(ps) => {
                 let val = self.eval(env, &ps.value)?;
-                (self.host.print)(format!("{}", val));
+                (self.host.print)(val.to_str(self)?);
                 Ok(())
             }
             Stmt::Expr(expr) => {
@@ -46,7 +46,7 @@ impl Exec for Interpreter {
                 }
 
                 Ok(())
-            },
+            }
             Stmt::If(if_stmt) => {
                 if (self.eval(env, &if_stmt.condition)?).is_truthy() {
                     self.exec(env, &if_stmt.then_branch)?;
@@ -84,16 +84,10 @@ impl Exec for Interpreter {
                             CallableValue::Class(c) => {
                                 superclass = Some(Rc::clone(c));
                             }
-                            _ => {
-                                return Err(EvalError::SuperclassMustBeAClass(
-                                    type_
-                                ))
-                            }
+                            _ => return Err(EvalError::SuperclassMustBeAClass(type_)),
                         }
                     } else {
-                        return Err(EvalError::SuperclassMustBeAClass(
-                            type_,
-                        ));
+                        return Err(EvalError::SuperclassMustBeAClass(type_));
                     }
                 }
 

@@ -1,7 +1,10 @@
-use super::lox_class::LoxClass;
+use super::eval_result::{EvalError, EvalResult};
 use super::lox_callable::LoxCallable;
+use super::lox_class::LoxClass;
 use super::lox_function::LoxFunction;
 use super::lox_instance::LoxInstance;
+use super::Interpreter;
+use crate::parser::Identifier;
 
 use std::fmt;
 use std::rc::Rc;
@@ -56,13 +59,12 @@ impl Value {
             Value::Number(_) => "number".into(),
             Value::Nil => "nil".into(),
             Value::String(_) => "string".into(),
-            Value::Callable(callable) => 
-                match callable {
-                    CallableValue::Class(_) => "class".into(),
-                    CallableValue::Function(_) => "function".into(),
-                    CallableValue::Native(_) => "native".into()
-                },
-            Value::Instance(_) => "instance".into()
+            Value::Callable(callable) => match callable {
+                CallableValue::Class(_) => "class".into(),
+                CallableValue::Function(_) => "function".into(),
+                CallableValue::Native(_) => "native".into(),
+            },
+            Value::Instance(_) => "instance".into(),
         }
     }
 }
@@ -72,7 +74,7 @@ impl CallableValue {
         match self {
             CallableValue::Class(c) => c,
             CallableValue::Function(f) => f,
-            CallableValue::Native(n) => n
+            CallableValue::Native(n) => n,
         }
     }
 }
@@ -82,7 +84,7 @@ impl PartialEq for CallableValue {
         match (self, other) {
             (&CallableValue::Function(ref a), &CallableValue::Function(ref b)) => Rc::ptr_eq(a, b),
             (&CallableValue::Class(ref a), &CallableValue::Class(ref b)) => Rc::ptr_eq(a, b),
-            _ => false
+            _ => false,
         }
     }
 }
@@ -107,8 +109,29 @@ impl fmt::Display for Value {
             Value::Boolean(b) => write!(f, "{}", b),
             Value::Number(nb) => write!(f, "{}", nb),
             Value::String(s) => write!(f, "{}", s),
-            Value::Callable(c) => write!(f, "{:?}", c),
-            Value::Instance(i) => write!(f, "<instance {:?}>", i),
+            Value::Callable(c) => write!(f, "<callable {:?}>", c),
+            Value::Instance(inst) => write!(f, "<instance {:?}>", inst),
+        }
+    }
+}
+
+impl Value {
+    pub fn to_str(&self, interpreter: &Interpreter) -> EvalResult<std::string::String> {
+        if let Value::Instance(inst) = self {
+            if let Some(res) = inst.call(Identifier::str_(), interpreter, vec![]) {
+                match res {
+                    Ok(Value::String(s)) => Ok(s),
+                    Ok(val) => Err(EvalError::ToStringMethodMustReturnAString(
+                        interpreter.name(inst.class_name()),
+                        val.type_()
+                    )),
+                    Err(err) => Err(err),
+                }
+            } else {
+                Ok("<instance>".into())
+            }
+        } else {
+            Ok(format!("{}", self))
         }
     }
 }

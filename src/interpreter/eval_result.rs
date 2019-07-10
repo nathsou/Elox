@@ -15,6 +15,7 @@ pub enum EvalError {
     OnlyInstancesHaveProperties(String),
     UndefinedProperty(String),
     SuperclassMustBeAClass(String),
+    ToStringMethodMustReturnAString(String, String),
     Return(Value),
 }
 
@@ -42,6 +43,9 @@ impl fmt::Display for EvalError {
             EvalError::UndefinedProperty(id) => write!(f, "Undefined property: '{}'", id),
             EvalError::SuperclassMustBeAClass(typ) => {
                 write!(f, "Superclass must be a class, found: '{}'", typ)
+            }
+            EvalError::ToStringMethodMustReturnAString(class_name, return_type) => {
+                write!(f, "#str trait method must return a string, got '{}' in class '{}'", return_type, class_name)
             }
         }
     }

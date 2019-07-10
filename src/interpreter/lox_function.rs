@@ -179,6 +179,6 @@ impl std::fmt::Debug for LoxFunction {
             }
         };
 
-        write!(f, "<fn {}>", name)
+        write!(f, "<function {}>", name)
     }
 }

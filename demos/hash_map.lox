@@ -6,9 +6,9 @@ fun indexOf(array, val) {
     }
   
     return nil;
-  }
+}
   
-  class HashMap {
+class HashMap {
     init() {
       this.keys = Array();
       this.values = Array();
@@ -35,19 +35,26 @@ fun indexOf(array, val) {
       return this.keys.length();
     }
   
-  }
+    #str() {
+      var entries = "[";
+      var size = this.size();
+      for (var i = 0; i < size; i = i + 1) {
+        entries = entries + this.keys[i] + "->" + this.values[i];
+        if (i != size - 1) entries = entries + ", ";
+      }
+      
+      return entries + "]";
+    }
+}
   
-  var map = HashMap();
+var map = HashMap();
   
-  map["alice"] = 20;
-  map["bob"] = 18;
-  map["charlie"] = "hoy!";
-  map["dan"] = "hey!";
-  map["bob"] = true;
-  
-  for (var i = 0; i < map.size(); i = i + 1) {
-    var key = map.keys[i];
-    print key + " -> " + map[key];
-  }
+map["alice"] = 20;
+map["bob"] = 18;
+map["charlie"] = "hoy!";
+map["dan"] = "hey!";
+map["bob"] = true;
+
+print map;
 
   
