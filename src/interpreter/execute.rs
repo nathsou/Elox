@@ -7,7 +7,7 @@ use super::value::{CallableValue, Value};
 use crate::interpreter::eval_result::{EvalError, EvalResult};
 use crate::interpreter::Interpreter;
 use crate::parser::expressions::Expr;
-use crate::parser::statements::Stmt;
+use crate::parser::statements::{Stmt};
 use crate::parser::{Identifier, IdentifierHandle};
 use fnv::FnvHashMap;
 use std::rc::Rc;
@@ -21,7 +21,6 @@ impl Exec for Interpreter {
         match stmt {
             Stmt::Print(ps) => {
                 let val = self.eval(env, &ps.value)?;
-                // println!("{}", val);
                 (self.host.print)(format!("{}", val));
                 Ok(())
             }
@@ -47,7 +46,7 @@ impl Exec for Interpreter {
                 }
 
                 Ok(())
-            }
+            },
             Stmt::If(if_stmt) => {
                 if (self.eval(env, &if_stmt.condition)?).is_truthy() {
                     self.exec(env, &if_stmt.then_branch)?;
@@ -79,6 +78,7 @@ impl Exec for Interpreter {
                 let mut superclass = None;
                 if let Some(parent_class) = &class_decl.superclass {
                     let val = self.eval(env, &Expr::Var(parent_class.clone()))?;
+                    let type_ = val.type_();
                     if let Some(callable) = &val.into_callable_value() {
                         match callable {
                             CallableValue::Class(c) => {
@@ -86,13 +86,13 @@ impl Exec for Interpreter {
                             }
                             _ => {
                                 return Err(EvalError::SuperclassMustBeAClass(
-                                    parent_class.identifier.name,
+                                    type_
                                 ))
                             }
                         }
                     } else {
                         return Err(EvalError::SuperclassMustBeAClass(
-                            parent_class.identifier.name,
+                            type_,
                         ));
                     }
                 }

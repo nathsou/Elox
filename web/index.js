@@ -38,45 +38,45 @@ fun indexOf(array, val) {
     }
   
     return nil;
-  }
+}
   
-  class HashMap {
+class HashMap {
     init() {
-      this.keys = Array();
-      this.values = Array();
+        this.keys = Array();
+        this.values = Array();
     }
-  
+
     set(key, val) {
         var idx = indexOf(this.keys, key);
         if (idx == nil) {
-          this.keys.push(key);
-          this.values.push(val);
+            this.keys.push(key);
+            this.values.push(val);
         } else {
-          this.keys.set(idx, key);
-          this.values.set(idx, val);
+            this.keys.set(idx, key);
+            this.values.set(idx, val);
         }
     }
-  
+
     get(key) {
         var idx = indexOf(this.keys, key);
         if (idx == nil) return nil;
         return this.values.get(idx);
     }
-  
-  }
-  
-  var map = HashMap();
-  
-  map.set("alice", 20);
-  map.set("bob", 18);
-  map.set("charlie", "hoy!");
-  map.set("dan", "hey!");
-  map.set("bob", true);
-  
-  for (var i = 0; i < map.keys.length(); i = i + 1) {
+
+}
+
+var map = HashMap();
+
+map.set("alice", 20);
+map.set("bob", 18);
+map.set("charlie", "hoy!");
+map.set("dan", "hey!");
+map.set("bob", true);
+
+for (var i = 0; i < map.keys.length(); i = i + 1) {
     var key = map.keys.get(i);
     print key + " -> " + map.get(key);
-  }
+}
 
   
   `);

@@ -16,6 +16,7 @@ pub type IdentifierUseHandle = usize;
 #[derive(Debug)]
 pub struct IdentifierHandlesGenerator {
     handles: FnvHashMap<std::string::String, IdentifierHandle>,
+    names: Vec<std::string::String>,
     next_id_handle: IdentifierHandle,
     next_use_handle: IdentifierUseHandle,
 }
@@ -37,23 +38,48 @@ impl Identifier {
 
     pub fn array() -> IdentifierHandle {
         3
-    } 
+    }
+
+    pub fn clock() -> IdentifierHandle {
+        4
+    }
+
+    pub fn anonymous() -> IdentifierHandle {
+        5
+    }
 }
+
+pub type IdentifierNames = Vec<std::string::String>;
 
 impl IdentifierHandlesGenerator {
     pub fn new() -> IdentifierHandlesGenerator {
-        let mut handles = FnvHashMap::default();
-
-        handles.insert(std::string::String::from("this"), Identifier::this());
-        handles.insert(std::string::String::from("init"), Identifier::init());
-        handles.insert(std::string::String::from("super"), Identifier::super_());
-        handles.insert(std::string::String::from("Array"), Identifier::array());
-
-        IdentifierHandlesGenerator {
-            next_id_handle: handles.len(),
-            handles,
+        let mut handle_gen = IdentifierHandlesGenerator {
+            next_id_handle: 6,
+            handles: FnvHashMap::default(),
             next_use_handle: 0,
-        }
+            names: Vec::with_capacity(6),
+        };
+
+        handle_gen.insert(std::string::String::from("this"), Identifier::this());
+        handle_gen.insert(std::string::String::from("init"), Identifier::init());
+        handle_gen.insert(std::string::String::from("super"), Identifier::super_());
+        handle_gen.insert(std::string::String::from("Array"), Identifier::array());
+        handle_gen.insert(std::string::String::from("clock"), Identifier::clock());
+        handle_gen.insert(
+            std::string::String::from("anonymous"),
+            Identifier::anonymous(),
+        );
+
+        handle_gen
+    }
+
+    pub fn insert(&mut self, name: std::string::String, handle: IdentifierHandle) {
+        self.names.push(name.clone());
+        self.handles.insert(name, handle);
+    }
+
+    pub fn names(&self) -> IdentifierNames {
+        self.names.clone()
     }
 
     fn next_with_name(&mut self, name: &str) -> IdentifierUse {
@@ -84,7 +110,7 @@ impl IdentifierHandlesGenerator {
         }
 
         let handle = self.next_id_handle();
-        self.handles.insert(name.into(), handle);
+        self.insert(name.into(), handle);
 
         // println!("{} -> {}", name, handle);
 
@@ -123,7 +149,11 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse(&mut self) -> ParserResult<Vec<Stmt>> {
+    pub fn identifiers(&self) -> IdentifierNames {
+        self.identifiers.names()
+    }
+
+    pub fn parse(&mut self) -> ParserResult<BlockStmt> {
         let mut stmts = Vec::new();
         while let Some(Ok(tok)) = self.tokens.peek() {
             match tok.token_type {
@@ -135,7 +165,9 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Ok(stmts)
+        // TODO: global scope Issue?
+
+        Ok(BlockStmt {stmts})
     }
 
     fn consume(&mut self, token_type: TokenType) -> bool {

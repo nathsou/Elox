@@ -37,11 +37,14 @@ pub fn create_lox_array_class(
             env.clone(),
             true,
             0,
+            Identifier::init(),
         )),
     );
 
+    let push_handle = identifiers.by_name("push");
+
     methods.insert(
-        identifiers.by_name("push"),
+        push_handle,
         Rc::new(LoxFunction::new_native_method(
             Rc::new(
                 |this: &LoxInstance,
@@ -64,11 +67,14 @@ pub fn create_lox_array_class(
             env.clone(),
             false,
             1,
+            push_handle,
         )),
     );
 
+    let get_handle = identifiers.by_name("get");
+
     methods.insert(
-        identifiers.by_name("get"),
+        get_handle,
         Rc::new(LoxFunction::new_native_method(
             Rc::new(
                 |_this: &LoxInstance,
@@ -100,11 +106,14 @@ pub fn create_lox_array_class(
             env.clone(),
             false,
             1,
+            get_handle,
         )),
     );
 
+    let set_handle = identifiers.by_name("set"); 
+
     methods.insert(
-        identifiers.by_name("set"),
+        set_handle,
         Rc::new(LoxFunction::new_native_method(
             Rc::new(
                 |_this: &LoxInstance,
@@ -137,11 +146,14 @@ pub fn create_lox_array_class(
             env.clone(),
             false,
             2,
+            set_handle,
         )),
     );
 
+    let length_handle = identifiers.by_name("length");
+
     methods.insert(
-        identifiers.by_name("length"),
+        length_handle,
         Rc::new(LoxFunction::new_native_method(
             Rc::new(
                 |_this: &LoxInstance,
@@ -163,6 +175,7 @@ pub fn create_lox_array_class(
             env.clone(),
             false,
             0,
+            length_handle,
         )),
     );
 

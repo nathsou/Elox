@@ -6,7 +6,7 @@ use super::lox_instance::LoxInstance;
 use super::Environment;
 use super::Interpreter;
 use super::Value;
-use crate::parser::{Identifier, IdentifierHandle};
+use crate::parser::{Identifier, IdentifierHandle, IdentifierNames};
 use fnv::FnvHashMap;
 use std::fmt;
 use std::rc::Rc;
@@ -36,7 +36,7 @@ impl LoxClass {
                 superclass,
                 methods,
             }),
-            use_natives: false
+            use_natives: false,
         }
     }
 
@@ -51,7 +51,7 @@ impl LoxClass {
                 superclass,
                 methods,
             }),
-            use_natives: false
+            use_natives: false,
         }
     }
 
@@ -77,10 +77,11 @@ impl LoxCallable for LoxClass {
         _env: &Environment,
         args: Vec<Value>,
     ) -> EvalResult<Value> {
-        let instance = if self.use_natives { LoxInstance::new(Rc::clone(&self.mold)) } else {
+        let instance = if self.use_natives {
+            LoxInstance::new(Rc::clone(&self.mold))
+        } else {
             LoxInstance::new_native(Rc::clone(&self.mold))
         };
-        
         if let Some(initializer) = self.find_method(Identifier::init()) {
             let bound_init = initializer.bind(&instance);
             bound_init.call(interpreter, &bound_init.env, args)?;
@@ -95,6 +96,10 @@ impl LoxCallable for LoxClass {
         }
 
         0usize
+    }
+
+    fn name(&self, names: &Rc<IdentifierNames>) -> String {
+        format!("{}.init",names[self.mold.identifier].clone())
     }
 }
 

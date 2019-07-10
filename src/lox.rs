@@ -55,8 +55,6 @@ impl Lox {
         let mut identifiers = IdentifierHandlesGenerator::new();
         let global = Environment::with_natives(None, &mut identifiers);
         let mut parser = Parser::new(scanner.peekable(), identifiers);
-        let mut interpreter = Interpreter::new(global, &self.host);
-        let mut resolver = Resolver::new(&mut interpreter);
 
         match parser.parse() {
             Ok(ast) => {
@@ -64,9 +62,14 @@ impl Lox {
                 //     println!("{}", stmt.pretty_print());
                 // }
 
-                match resolver.resolve(&ast) {
+                let identifier_names = Rc::new(parser.identifiers());
+
+                let mut interpreter = Interpreter::new(global, &self.host, &identifier_names);
+                let mut resolver = Resolver::new(&mut interpreter, &identifier_names);
+
+                match resolver.resolve(&ast.stmts) {
                     Ok(()) => {
-                        let res = interpreter.interpret(&ast);
+                        let res = interpreter.interpret(&ast.stmts);
                         match res {
                             Ok(()) => {}
                             Err(err) => {

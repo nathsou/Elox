@@ -1,22 +1,7 @@
 
-var a = Array();
+class A {
+    () {
 
-fun bench(n) {
-    for (var i = 0; i < n; i = i + 1) {
-       a.push(i); 
-    }
+    } 
 
-    for (var i = 0; i < n; i = i + 1) {
-       a.get(i); 
-    }
 }
-
-fun time(fn) {
-    var t1 = clock();
-    fn();
-    return (clock() - t1) * 1000;
-}
-
-print time(fun() {
-    bench(100000);
-});

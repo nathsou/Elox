@@ -7,7 +7,7 @@ use super::Interpreter;
 
 use super::Value;
 use crate::parser::expressions::FuncExpr;
-use crate::parser::Identifier;
+use crate::parser::{Identifier, IdentifierHandle, IdentifierNames};
 use std::rc::Rc;
 
 pub type NativeFunction = Fn(&LoxFunction, &Interpreter, &Environment, Vec<Value>) -> EvalResult<Value>;
@@ -22,6 +22,7 @@ pub enum Func {
 
 pub struct LoxFunction {
     pub func: Func,
+    pub name: Option<IdentifierHandle>,
     pub env: Environment,
     pub is_initializer: bool,
     arity: usize,
@@ -34,6 +35,7 @@ impl LoxFunction {
             func: Func::Expr(func),
             env,
             is_initializer,
+            name: None,
         }
     }
 
@@ -42,12 +44,14 @@ impl LoxFunction {
         env: Environment,
         is_initializer: bool,
         arity: usize,
+        name: IdentifierHandle,
     ) -> LoxFunction {
         LoxFunction {
             func: Func::Native(func),
             env,
             is_initializer,
             arity,
+            name: Some(name),
         }
     }
 
@@ -56,12 +60,14 @@ impl LoxFunction {
         env: Environment,
         is_initializer: bool,
         arity: usize,
+        name: IdentifierHandle
     ) -> LoxFunction {
         LoxFunction {
             func: Func::NativeMethod(method),
             env,
             is_initializer,
             arity,
+            name: Some(name),
         }
     }
 
@@ -74,10 +80,10 @@ impl LoxFunction {
                 LoxFunction::new(func_expr.clone(), new_env, self.is_initializer)
             }
             Func::Native(callable) => {
-                LoxFunction::new_native(Rc::clone(&callable), new_env, self.is_initializer, self.arity)
+                LoxFunction::new_native(Rc::clone(&callable), new_env, self.is_initializer, self.arity, self.name.unwrap())
             }
             Func::NativeMethod(callable) => {
-                LoxFunction::new_native_method(Rc::clone(&callable), new_env, self.is_initializer, self.arity)
+                LoxFunction::new_native_method(Rc::clone(&callable), new_env, self.is_initializer, self.arity, self.name.unwrap())
             }
         }
     }
@@ -141,6 +147,21 @@ impl LoxCallable for LoxFunction {
 
     fn arity(&self) -> usize {
         self.arity
+    }
+
+    fn name(&self, names: &Rc<IdentifierNames>) -> String {
+        let handle = match &self.func {
+            Func::Expr(expr) => {
+                if let Some(handle) = expr.name {
+                    handle.name
+                } else {
+                    Identifier::anonymous()
+                }
+            }
+            _ => self.name.unwrap()
+        };
+
+        names[handle].clone()
     }
 }
 

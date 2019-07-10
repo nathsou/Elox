@@ -2,6 +2,8 @@ use super::value::Value;
 use super::Environment;
 use super::EvalResult;
 use super::Interpreter;
+use crate::parser::{IdentifierNames};
+use std::rc::Rc;
 
 pub trait LoxCallable: std::fmt::Debug {
     fn call(
@@ -12,4 +14,6 @@ pub trait LoxCallable: std::fmt::Debug {
     ) -> EvalResult<Value>;
 
     fn arity(&self) -> usize;
+
+    fn name(&self, names: &Rc<IdentifierNames>) -> String;
 }

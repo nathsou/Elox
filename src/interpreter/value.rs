@@ -49,6 +49,22 @@ impl Value {
 
         None
     }
+
+    pub fn type_(&self) -> String {
+        match &self {
+            Value::Boolean(_) => "boolean".into(),
+            Value::Number(_) => "number".into(),
+            Value::Nil => "nil".into(),
+            Value::String(_) => "string".into(),
+            Value::Callable(callable) => 
+                match callable {
+                    CallableValue::Class(_) => "class".into(),
+                    CallableValue::Function(_) => "function".into(),
+                    CallableValue::Native(_) => "native".into()
+                },
+            Value::Instance(_) => "instance".into()
+        }
+    }
 }
 
 impl CallableValue {

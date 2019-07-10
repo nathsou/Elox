@@ -1,14 +1,16 @@
-use super::lox_callable::{LoxCallable};
+use super::lox_callable::LoxCallable;
 use super::value::Value;
 use super::Environment;
 use super::Interpreter;
 use super::{eval_result::EvalError, EvalResult};
+use crate::parser::{Identifier, IdentifierNames};
 use std::cell::RefCell;
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub enum NativeValue {
     Vector(RefCell<Vec<Value>>),
-} 
+}
 
 impl NativeValue {
     pub fn into_vec(&self) -> Option<&RefCell<Vec<Value>>> {
@@ -41,4 +43,7 @@ impl LoxCallable for Clock {
         0
     }
 
+    fn name(&self, names: &Rc<IdentifierNames>) -> String {
+        names[Identifier::clock()].clone()
+    }
 }

@@ -13,7 +13,9 @@ mod lox_instance;
 mod natives;
 pub mod value;
 
-use crate::parser::{statements::Stmt, IdentifierUse, IdentifierUseHandle};
+use crate::parser::{
+    statements::Stmt, IdentifierHandle, IdentifierNames, IdentifierUse, IdentifierUseHandle,
+};
 use environment::Environment;
 use eval_result::EvalResult;
 use execute::Exec;
@@ -26,14 +28,16 @@ pub struct Interpreter {
     global: Environment,
     depths: FnvHashMap<IdentifierUseHandle, usize>,
     host: Rc<Host>,
+    identifier_names: Rc<IdentifierNames>,
 }
 
 impl Interpreter {
-    pub fn new(env: Environment, host: &Rc<Host>) -> Interpreter {
+    pub fn new(env: Environment, host: &Rc<Host>, names: &Rc<IdentifierNames>) -> Interpreter {
         Interpreter {
             global: env,
             depths: fnv::FnvHashMap::default(),
             host: Rc::clone(host),
+            identifier_names: Rc::clone(&names),
         }
     }
 
@@ -47,6 +51,10 @@ impl Interpreter {
 
     pub fn resolve(&mut self, identifier: IdentifierUseHandle, depth: usize) {
         self.depths.insert(identifier, depth);
+    }
+
+    pub fn name(&self, handle: IdentifierHandle) -> String {
+        self.identifier_names[handle].clone()
     }
 
     pub fn lookup_variable(&self, env: &Environment, identifier: &IdentifierUse) -> Option<Value> {

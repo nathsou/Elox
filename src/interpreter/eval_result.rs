@@ -1,20 +1,20 @@
 use crate::interpreter::value::Value;
 use crate::parser::expressions::UnaryOperator;
-use crate::parser::IdentifierHandle;
 use std::fmt;
 
 pub type EvalResult<T> = Result<T, EvalError>;
 
+#[derive(Debug)]
 pub enum EvalError {
     UnexpectedUnaryOperatorOperand(UnaryOperator, Value),
     UnexpectedBinaryOperatorOperands(),
-    UndefinedVariable(IdentifierHandle),
-    ValueNotCallable(),
-    WrongNumberOfArgs(usize, usize),
+    UndefinedVariable(String),
+    ValueNotCallable(String),
+    WrongNumberOfArgs(usize, usize, String),
     CouldNotGetTime(),
-    OnlyInstancesHaveProperties(),
-    UndefinedProperty(IdentifierHandle),
-    SuperclassMustBeAClass(IdentifierHandle),
+    OnlyInstancesHaveProperties(String),
+    UndefinedProperty(String),
+    SuperclassMustBeAClass(String),
     Return(Value),
 }
 
@@ -30,15 +30,19 @@ impl fmt::Display for EvalError {
             EvalError::UnexpectedBinaryOperatorOperands() => {
                 write!(f, "Unexpected binary operator operands")
             }
-            EvalError::ValueNotCallable() => write!(f, "Value is not callable"),
-            EvalError::WrongNumberOfArgs(expected, got) => {
-                write!(f, "Expected {} arguments, got {}", expected, got)
+            EvalError::ValueNotCallable(typ) => {
+                write!(f, "Value of type '{}' is not callable", typ)
+            }
+            EvalError::WrongNumberOfArgs(expected, got, name) => {
+                write!(f, "'{}' expected {} arguments, got {}", name, expected, got)
             }
             EvalError::CouldNotGetTime() => write!(f, "Could not get time"),
             EvalError::Return(_) => unreachable!(),
-            EvalError::OnlyInstancesHaveProperties() => write!(f, "Only instances have properties"),
-            EvalError::UndefinedProperty(id) => write!(f, "Undefined property: {}", id),
-            EvalError::SuperclassMustBeAClass(id) => write!(f, "Superclass must be a class, found: '{}'", id),
+            EvalError::OnlyInstancesHaveProperties(typ) => write!(f, "Only instances have properties, found: '{}'", typ),
+            EvalError::UndefinedProperty(id) => write!(f, "Undefined property: '{}'", id),
+            EvalError::SuperclassMustBeAClass(typ) => {
+                write!(f, "Superclass must be a class, found: '{}'", typ)
+            }
         }
     }
 }

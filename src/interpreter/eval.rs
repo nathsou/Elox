@@ -72,7 +72,7 @@ impl Eval for Interpreter {
                     return Ok(value);
                 }
 
-                Err(EvalError::UndefinedVariable(var_expr.identifier.name))
+                Err(EvalError::UndefinedVariable(self.name(var_expr.identifier.name)))
             }
             Expr::Assign(expr) => {
                 let assign_expr = expr.deref();
@@ -82,7 +82,9 @@ impl Eval for Interpreter {
                     return Ok(value);
                 }
 
-                Err(EvalError::UndefinedVariable(assign_expr.identifier.name))
+                Err(EvalError::UndefinedVariable(
+                    self.name(assign_expr.identifier.name),
+                ))
             }
             Expr::Logical(expr) => {
                 let left = self.eval(env, &expr.left)?;
@@ -111,15 +113,16 @@ impl Eval for Interpreter {
                     args.push(self.eval(env, arg)?);
                 }
 
-                if let Some(callable_val) = callee.into_callable_value() {
-                    let callable = callable_val.into_callable();
-                    if callable.arity() != args.len() {
-                        return Err(EvalError::WrongNumberOfArgs(callable.arity(), args.len()));
-                    }
+                match callee {
+                    Value::Callable(callable_value) => {
+                        let callable = callable_value.into_callable();
+                        if callable.arity() != args.len() {
+                            return Err(EvalError::WrongNumberOfArgs(callable.arity(), args.len(), callable.name(&self.identifier_names)));
+                        }
 
-                    return Ok(callable.call(&self, env, args)?);
-                } else {
-                    return Err(EvalError::ValueNotCallable());
+                        return Ok(callable.call(&self, env, args)?);
+                    }
+                    _ => return Err(EvalError::ValueNotCallable(callee.type_())),
                 }
             }
             Expr::Func(func_expr) => {
@@ -140,10 +143,12 @@ impl Eval for Interpreter {
                     if let Some(prop_val) = instance.get(get_expr.property.name) {
                         return Ok(prop_val);
                     } else {
-                        return Err(EvalError::UndefinedProperty(get_expr.property.name));
+                        return Err(EvalError::UndefinedProperty(self.name(get_expr.property.name)));
                     }
                 }
-                Err(EvalError::OnlyInstancesHaveProperties())
+
+                Err(EvalError::OnlyInstancesHaveProperties(
+                    self.eval(env, &get_expr.object).unwrap().type_()))
             }
             Expr::Set(set_expr) => {
                 let obj = self.eval(env, &set_expr.object)?;
@@ -154,7 +159,7 @@ impl Eval for Interpreter {
                     return Ok(val);
                 }
 
-                Err(EvalError::OnlyInstancesHaveProperties())
+                Err(EvalError::OnlyInstancesHaveProperties(self.eval(env, &set_expr.object).unwrap().type_()))
             }
             Expr::This(this_expr) => {
                 if let Some(this) = self.lookup_variable(env, &this_expr.identifier) {
@@ -177,7 +182,9 @@ impl Eval for Interpreter {
                                         method.bind(&instance),
                                     ))));
                                 } else {
-                                    return Err(EvalError::UndefinedProperty(super_expr.method.name));
+                                    return Err(EvalError::UndefinedProperty(
+                                        self.name(super_expr.method.name),
+                                    ));
                                 }
                             }
                         }
