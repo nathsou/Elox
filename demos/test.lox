@@ -1,10 +1,6 @@
 
-class Identity {
-    #get(n) {
-        return n; 
-    }
-}
+var a = 3;
 
-var a = Identity();
+a %= 2;
 
-print a[100];
+print a;

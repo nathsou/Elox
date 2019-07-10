@@ -10,17 +10,6 @@ use parser_result::{ParserError, ParserResult};
 use statements::*;
 use std::iter::Peekable;
 
-pub type IdentifierHandle = usize;
-pub type IdentifierUseHandle = usize;
-
-#[derive(Debug)]
-pub struct IdentifierHandlesGenerator {
-    handles: FnvHashMap<std::string::String, IdentifierHandle>,
-    names: Vec<std::string::String>,
-    next_id_handle: IdentifierHandle,
-    next_use_handle: IdentifierUseHandle,
-}
-
 pub struct Identifier {}
 
 impl Identifier {
@@ -61,7 +50,17 @@ impl Identifier {
     }
 }
 
+pub type IdentifierHandle = usize;
+pub type IdentifierUseHandle = usize;
 pub type IdentifierNames = Vec<std::string::String>;
+
+#[derive(Debug)]
+pub struct IdentifierHandlesGenerator {
+    handles: FnvHashMap<std::string::String, IdentifierHandle>,
+    names: Vec<std::string::String>,
+    next_id_handle: IdentifierHandle,
+    next_use_handle: IdentifierUseHandle,
+}
 
 impl IdentifierHandlesGenerator {
     pub fn new() -> IdentifierHandlesGenerator {
@@ -569,51 +568,61 @@ impl<'a> Parser<'a> {
     fn assignment(&mut self) -> ParserResult<Expr> {
         let expr = self.or_expr()?;
 
-        if self.consume(Equal) {
-            let value = self.assignment()?;
+        let next_token = self.tokens.peek();
 
-            match expr {
-                Expr::Var(v) => return Ok(AssignExpr::new(v.identifier, value)),
-                Expr::Get(g) => return Ok(SetExpr::new(g.property, g.object, value)),
-                Expr::Call(expr) => {
-                    if let Expr::Get(access) = expr.callee {
-                        if access.property.name == Identifier::get() {
-                            let set = self.identifiers.next_with_handle(Identifier::set());
-                            let mut args = expr.args;
-                            args.push(value);
-                            return Ok(CallExpr::new(GetExpr::new(set, access.object), args));
-                        } else {
-                            return Err(ParserError::InvalidAssignmentTarget());
-                        }
-                    }
-
-                    return Err(ParserError::InvalidAssignmentTarget());
+        if let Some(Ok(token)) = next_token {
+            let token_type = token.token_type.clone();
+            let right_value = match token.token_type {
+                Equal => {
+                    self.tokens.next();
+                    Some(self.assignment()?)
                 }
-                _ => return Err(ParserError::InvalidAssignmentTarget()),
+                PlusEqual | MinusEqual | StarEqual | SlashEqual | PercentEqual => {
+                    self.tokens.next();
+                    let val = self.assignment()?;
+                    let op = BinaryOperator::from_token_type(&token_type).unwrap();
+                    Some(BinaryExpr::new(expr.clone(), op, val))
+                }
+                PlusPlus => {
+                    self.tokens.next();
+                    Some(BinaryExpr::new(
+                        expr.clone(),
+                        BinaryOperator::Plus,
+                        Expr::Literal(Literal::Number(1f64)),
+                    ))
+                }
+                MinusMinus => {
+                    self.tokens.next();
+                    Some(BinaryExpr::new(
+                        expr.clone(),
+                        BinaryOperator::Minus,
+                        Expr::Literal(Literal::Number(1f64)),
+                    ))
+                }
+                _ => None,
+            };
+
+            if let Some(right_val) = right_value {
+                match expr {
+                    Expr::Var(v) => return Ok(AssignExpr::new(v.identifier, right_val)),
+                    Expr::Get(g) => return Ok(SetExpr::new(g.property, g.object, right_val)),
+                    Expr::Call(expr) => {
+                        if let Expr::Get(access) = expr.callee {
+                            if access.property.name == Identifier::get() {
+                                let set = self.identifiers.next_with_handle(Identifier::set());
+                                let mut args = expr.args;
+                                args.push(right_val);
+                                return Ok(CallExpr::new(GetExpr::new(set, access.object), args));
+                            } else {
+                                return Err(ParserError::InvalidAssignmentTarget());
+                            }
+                        }
+
+                        return Err(ParserError::InvalidAssignmentTarget());
+                    }
+                    _ => return Err(ParserError::InvalidAssignmentTarget()),
+                };
             }
-        } else {
-            // let mut op = BinaryOperator::Plus;
-            // let mut val: Option<Expr> = None;
-
-            // println!("{:?}", self.tokens.next());
-
-            // if self.consume(Plus) {
-            //     op = BinaryOperator::Plus;
-            //     if self.consume(Equal) {
-            //         val = Some(self.assignment()?);
-            //     }
-
-            // }
-
-            // if let Some(val) = val {
-            //     let operation = BinaryExpr::new(expr.clone(), op, val.clone());
-
-            //     match expr {
-            //         Expr::Var(v) => return Ok(AssignExpr::new(v.identifier, operation)),
-            //         Expr::Get(g) => return Ok(SetExpr::new(g.property, g.object, operation)),
-            //         _ => return Err(ParserError::InvalidAssignmentTarget())
-            //     };
-            // }
         }
 
         return Ok(expr);

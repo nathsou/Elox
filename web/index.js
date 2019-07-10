@@ -33,7 +33,7 @@ const editor = new CodeFlask('#editor', {
 editor.updateCode(`
 fun indexOf(array, val) {
   var len = array.length();
-  for (var i = 0; i < len; i = i + 1) {
+  for (var i = 0; i < len; i++) {
     if (array[i] == val) return i;
   }
 
@@ -70,9 +70,9 @@ class HashMap {
   #str() {
     var entries = "[";
     var size = this.size();
-    for (var i = 0; i < size; i = i + 1) {
-      entries = entries + this.keys[i] + "->" + this.values[i];
-      if (i != size - 1) entries = entries + ", ";
+    for (var i = 0; i < size; i++) {
+      entries += this.keys[i] + "->" + this.values[i];
+      if (i != size - 1) entries += ", ";
     }
     
     return entries + "]";
@@ -88,6 +88,8 @@ map["dan"] = "hey!";
 map["bob"] = true;
 
 print map;
+
+
 
   `);
 

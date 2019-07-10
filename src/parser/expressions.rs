@@ -1,5 +1,6 @@
 use super::statements::Stmt;
 use super::IdentifierUse;
+use crate::scanner::token::token_type::TokenType;
 
 #[derive(Clone)]
 pub enum Literal {
@@ -39,6 +40,30 @@ pub enum BinaryOperator {
     GreaterEqual,
     Less,
     LessEqual,
+}
+
+impl BinaryOperator {
+    pub fn from_token_type(token_type: &TokenType) -> Option<BinaryOperator> {
+        match token_type {
+            TokenType::Minus => Some(BinaryOperator::Minus),
+            TokenType::Plus => Some(BinaryOperator::Plus),
+            TokenType::Slash => Some(BinaryOperator::Slash),
+            TokenType::Star => Some(BinaryOperator::Star),
+            TokenType::Percent => Some(BinaryOperator::Percent),
+            TokenType::BangEqual => Some(BinaryOperator::BangEqual),
+            TokenType::Greater => Some(BinaryOperator::Greater),
+            TokenType::GreaterEqual => Some(BinaryOperator::GreaterEqual),
+            TokenType::Less => Some(BinaryOperator::LessEqual),
+            TokenType::PlusEqual => Some(BinaryOperator::Plus),
+            TokenType::PlusPlus => Some(BinaryOperator::Plus),
+            TokenType::MinusEqual => Some(BinaryOperator::Minus),
+            TokenType::MinusMinus => Some(BinaryOperator::Minus),
+            TokenType::StarEqual => Some(BinaryOperator::Star),
+            TokenType::PercentEqual => Some(BinaryOperator::Percent),
+            TokenType::SlashEqual => Some(BinaryOperator::Slash),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -195,14 +220,11 @@ pub struct SuperExpr {
 
 impl SuperExpr {
     pub fn new(identifier: IdentifierUse, method: IdentifierUse) -> Expr {
-        Expr::Super(SuperExpr {
-            identifier,
-            method,
-        })
+        Expr::Super(SuperExpr { identifier, method })
     }
 }
 
 #[derive(Clone)]
 pub struct ThisExpr {
-    pub identifier: IdentifierUse
+    pub identifier: IdentifierUse,
 }

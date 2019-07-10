@@ -25,6 +25,13 @@ pub enum TokenType {
     GreaterEqual,
     Less,
     LessEqual,
+    PlusEqual,
+    PlusPlus,
+    MinusEqual,
+    MinusMinus,
+    StarEqual,
+    SlashEqual,
+    PercentEqual,
 
     // Literals
     Identifier(String),

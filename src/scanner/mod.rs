@@ -67,6 +67,34 @@ impl<'a> Scanner<'a> {
         self.match_next(&'=', operator_token, simple_token)
     }
 
+    fn match_plus_assignment_shorthand(&mut self) -> Token {
+        match self.source.peek() {
+            Some(&'=') => {
+                self.advance();
+                self.token(TokenType::PlusEqual)
+            }
+            Some(&'+') => {
+                self.advance();
+                self.token(TokenType::PlusPlus)
+            }
+            _ => self.token(TokenType::Plus),
+        }
+    }
+
+    fn match_minus_assignment_shorthand(&mut self) -> Token {
+        match self.source.peek() {
+            Some(&'=') => {
+                self.advance();
+                self.token(TokenType::MinusEqual)
+            }
+            Some(&'-') => {
+                self.advance();
+                self.token(TokenType::MinusMinus)
+            }
+            _ => self.token(TokenType::Minus),
+        }
+    }
+
     fn skip_line(&mut self) {
         while self.source.peek() != None && self.source.peek() != Some(&'\n') {
             self.source.next();
@@ -100,23 +128,28 @@ impl<'a> Scanner<'a> {
             Some(']') => Ok(self.token(RightBracket)),
             Some(',') => Ok(self.token(Comma)),
             Some('.') => Ok(self.token(Dot)),
-            Some('-') => Ok(self.token(Minus)),
-            Some('+') => Ok(self.token(Plus)),
+            Some('-') => Ok(self.match_minus_assignment_shorthand()),
+            Some('+') => Ok(self.match_plus_assignment_shorthand()),
             Some(';') => Ok(self.token(SemiColon)),
-            Some('*') => Ok(self.token(Star)),
-            Some('%') => Ok(self.token(Percent)),
+            Some('*') => Ok(self.match_next(&'=', StarEqual, Star)),
+            Some('%') => Ok(self.match_next(&'=', PercentEqual, Percent)),
             Some('!') => Ok(self.match_op(BangEqual, Bang)),
             Some('=') => Ok(self.match_op(EqualEqual, Equal)),
             Some('<') => Ok(self.match_op(LessEqual, Less)),
             Some('>') => Ok(self.match_op(GreaterEqual, Greater)),
             Some('/') => {
-                if self.source.peek() == Some(&'/') {
-                    // it's a comment
-                    self.skip_line();
-                    self.scan_token()
-                } else {
-                    Ok(self.token(Slash))
-                }
+                Ok(match self.source.peek() {
+                    Some(&'/') => {
+                        // it's a comment
+                        self.skip_line();
+                        self.scan_token()?
+                    }
+                    Some(&'=') => {
+                        self.advance();
+                        self.token(SlashEqual)
+                        },
+                    _ => self.token(Slash),
+                })
             }
             Some('"') => self.scan_string(),
             Some(c) => {
