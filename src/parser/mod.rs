@@ -47,6 +47,14 @@ impl Identifier {
     pub fn anonymous() -> IdentifierHandle {
         5
     }
+
+    pub fn get() -> IdentifierHandle {
+        6
+    }
+
+    pub fn set() -> IdentifierHandle {
+        7
+    }
 }
 
 pub type IdentifierNames = Vec<std::string::String>;
@@ -54,10 +62,10 @@ pub type IdentifierNames = Vec<std::string::String>;
 impl IdentifierHandlesGenerator {
     pub fn new() -> IdentifierHandlesGenerator {
         let mut handle_gen = IdentifierHandlesGenerator {
-            next_id_handle: 6,
+            next_id_handle: 8,
             handles: FnvHashMap::default(),
             next_use_handle: 0,
-            names: Vec::with_capacity(6),
+            names: Vec::with_capacity(8),
         };
 
         handle_gen.insert(std::string::String::from("this"), Identifier::this());
@@ -69,6 +77,8 @@ impl IdentifierHandlesGenerator {
             std::string::String::from("anonymous"),
             Identifier::anonymous(),
         );
+        handle_gen.insert(std::string::String::from("#get"), Identifier::get());
+        handle_gen.insert(std::string::String::from("#set"), Identifier::set());
 
         handle_gen
     }
@@ -153,7 +163,7 @@ impl<'a> Parser<'a> {
         self.identifiers.names()
     }
 
-    pub fn parse(&mut self) -> ParserResult<BlockStmt> {
+    pub fn parse(&mut self) -> ParserResult<Vec<Stmt>> {
         let mut stmts = Vec::new();
         while let Some(Ok(tok)) = self.tokens.peek() {
             match tok.token_type {
@@ -167,7 +177,7 @@ impl<'a> Parser<'a> {
 
         // TODO: global scope Issue?
 
-        Ok(BlockStmt {stmts})
+        Ok(stmts)
     }
 
     fn consume(&mut self, token_type: TokenType) -> bool {
@@ -560,11 +570,48 @@ impl<'a> Parser<'a> {
             match expr {
                 Expr::Var(v) => return Ok(AssignExpr::new(v.identifier, value)),
                 Expr::Get(g) => return Ok(SetExpr::new(g.property, g.object, value)),
+                Expr::Call(expr) => {
+                    if let Expr::Get(access) = expr.callee {
+                        if access.property.name == Identifier::get() {
+                            let set = self.identifiers.next_with_handle(Identifier::set());
+                            let mut args = expr.args;
+                            args.push(value);
+                            return Ok(CallExpr::new(GetExpr::new(set, access.object), args));
+                        } else {
+                            return Err(ParserError::InvalidAssignmentTarget());
+                        }
+                    }
+
+                    return Err(ParserError::InvalidAssignmentTarget());
+                }
                 _ => return Err(ParserError::InvalidAssignmentTarget()),
             }
         } else {
-            return Ok(expr);
+            // let mut op = BinaryOperator::Plus;
+            // let mut val: Option<Expr> = None;
+
+            // println!("{:?}", self.tokens.next());
+
+            // if self.consume(Plus) {
+            //     op = BinaryOperator::Plus;
+            //     if self.consume(Equal) {
+            //         val = Some(self.assignment()?);
+            //     }
+
+            // }
+
+            // if let Some(val) = val {
+            //     let operation = BinaryExpr::new(expr.clone(), op, val.clone());
+
+            //     match expr {
+            //         Expr::Var(v) => return Ok(AssignExpr::new(v.identifier, operation)),
+            //         Expr::Get(g) => return Ok(SetExpr::new(g.property, g.object, operation)),
+            //         _ => return Err(ParserError::InvalidAssignmentTarget())
+            //     };
+            // }
         }
+
+        return Ok(expr);
     }
 
     fn match_equality(&mut self) -> Option<BinaryOperator> {
@@ -615,8 +662,10 @@ impl<'a> Parser<'a> {
         if let Some(Ok(t)) = self.tokens.peek() {
             match t.token_type {
                 Plus => {
-                    self.tokens.next();
-                    return Some(BinaryOperator::Plus);
+                    if !self.match_next(Equal) {
+                        self.tokens.next();
+                        return Some(BinaryOperator::Plus);
+                    }
                 }
                 Minus => {
                     self.tokens.next();
@@ -730,6 +779,10 @@ impl<'a> Parser<'a> {
         loop {
             if self.consume(LeftParen) {
                 expr = self.finish_call(expr)?;
+            } else if self.consume(LeftBracket) {
+                // array access
+                let prop = self.identifiers.next_with_handle(Identifier::get());
+                expr = self.finish_array_access(GetExpr::new(prop, expr))?;
             } else if self.consume(Dot) {
                 if let Some(prop) = self.consume_identifier() {
                     expr = GetExpr::new(prop, expr);
@@ -757,6 +810,25 @@ impl<'a> Parser<'a> {
         }
 
         if !self.consume(RightParen) {
+            return Err(ParserError::ExpectedRightParenAfterCallExpr());
+        }
+
+        Ok(CallExpr::new(expr, args))
+    }
+
+    fn finish_array_access(&mut self, expr: Expr) -> ParserResult<Expr> {
+        let mut args = Vec::new();
+
+        if !self.match_next(RightParen) {
+            loop {
+                args.push(self.expression()?);
+                if !self.consume(Comma) {
+                    break;
+                }
+            }
+        }
+
+        if !self.consume(RightBracket) {
             return Err(ParserError::ExpectedRightParenAfterCallExpr());
         }
 

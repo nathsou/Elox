@@ -1,7 +1,10 @@
 
-class A {
-    () {
-
-    } 
-
+class Identity {
+    #get(n) {
+        return n; 
+    }
 }
+
+var a = Identity();
+
+print a[100];

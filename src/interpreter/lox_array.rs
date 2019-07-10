@@ -53,12 +53,7 @@ pub fn create_lox_array_class(
                  _interpreter: &Interpreter,
                  _env: &Environment,
                  args: Vec<Value>| {
-                    let mut values = natives
-                        .get(&vec_handle())
-                        .unwrap()
-                        .into_vec()
-                        .unwrap()
-                        .borrow_mut();
+                    let mut values = natives.get(&vec_handle()).unwrap().into_vec().borrow_mut();
                     values.push(args[0].clone());
 
                     Ok(Value::Instance(this.clone()))
@@ -71,7 +66,7 @@ pub fn create_lox_array_class(
         )),
     );
 
-    let get_handle = identifiers.by_name("get");
+    let get_handle = Identifier::get();
 
     methods.insert(
         get_handle,
@@ -83,12 +78,7 @@ pub fn create_lox_array_class(
                  _interpreter: &Interpreter,
                  _env: &Environment,
                  args: Vec<Value>| {
-                    let values = natives
-                        .get(&vec_handle())
-                        .unwrap()
-                        .into_vec()
-                        .unwrap()
-                        .borrow();
+                    let values = natives.get(&vec_handle()).unwrap().into_vec().borrow();
 
                     match args[0] {
                         Value::Number(n) => {
@@ -110,7 +100,7 @@ pub fn create_lox_array_class(
         )),
     );
 
-    let set_handle = identifiers.by_name("set"); 
+    let set_handle = Identifier::set();
 
     methods.insert(
         set_handle,
@@ -122,12 +112,7 @@ pub fn create_lox_array_class(
                  _interpreter: &Interpreter,
                  _env: &Environment,
                  args: Vec<Value>| {
-                    let mut values = natives
-                        .get(&vec_handle())
-                        .unwrap()
-                        .into_vec()
-                        .unwrap()
-                        .borrow_mut();
+                    let mut values = natives.get(&vec_handle()).unwrap().into_vec().borrow_mut();
 
                     match args[0] {
                         Value::Number(n) => {
@@ -161,13 +146,8 @@ pub fn create_lox_array_class(
                  _func: &LoxFunction,
                  _interpreter: &Interpreter,
                  _env: &Environment,
-                 args: Vec<Value>| {
-                    let values = natives
-                        .get(&vec_handle())
-                        .unwrap()
-                        .into_vec()
-                        .unwrap()
-                        .borrow();
+                 _args: Vec<Value>| {
+                    let values = natives.get(&vec_handle()).unwrap().into_vec().borrow();
 
                     Ok(Value::Number(values.len() as f64))
                 },

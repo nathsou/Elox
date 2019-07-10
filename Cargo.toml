@@ -9,6 +9,10 @@ path = "src/lib.rs"
 name = "elox"
 crate-type = ["cdylib", "rlib"]
 
+[[bin]]
+path = "src/bin.rs"
+name = "elox"
+
 [dependencies]
 fnv = "1.0.6"
 wasm-bindgen = "0.2"

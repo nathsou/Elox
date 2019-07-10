@@ -3,14 +3,13 @@ mod lox;
 mod parser;
 mod scanner;
 
+use interpreter::host::Host;
 use lox::Lox;
 use std::env;
 use std::path::Path;
 use std::process;
-use interpreter::host::Host;
 
 fn main() {
-
     let mut lox = Lox::new(Host::default());
     let args: Vec<String> = env::args().collect();
 

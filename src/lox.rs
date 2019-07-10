@@ -1,8 +1,8 @@
-use crate::interpreter::Interpreter;
-// use crate::parser::pretty_printer::PrettyPrinter;
 use crate::interpreter::environment::Environment;
 use crate::interpreter::host::Host;
 use crate::interpreter::lexical_scope::Resolver;
+use crate::interpreter::Interpreter;
+// use crate::parser::pretty_printer::PrettyPrinter;
 use crate::parser::{IdentifierHandlesGenerator, Parser};
 use crate::scanner::Scanner;
 
@@ -64,12 +64,14 @@ impl Lox {
 
                 let identifier_names = Rc::new(parser.identifiers());
 
+                // println!("{:?}", identifier_names);
+
                 let mut interpreter = Interpreter::new(global, &self.host, &identifier_names);
                 let mut resolver = Resolver::new(&mut interpreter, &identifier_names);
 
-                match resolver.resolve(&ast.stmts) {
+                match resolver.resolve(&ast) {
                     Ok(()) => {
-                        let res = interpreter.interpret(&ast.stmts);
+                        let res = interpreter.interpret(&ast);
                         match res {
                             Ok(()) => {}
                             Err(err) => {

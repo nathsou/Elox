@@ -125,7 +125,7 @@ impl<'a> Scanner<'a> {
                     self.scan_token()
                 } else if c.is_digit(10) {
                     self.scan_number()
-                } else if c.is_alphabetic() || c == '_' {
+                } else if c.is_alphabetic() || c == '_' || c == '#' {
                     self.scan_identifier()
                 } else {
                     Err(ScannerError::UnexpectedCharacter(c, self.line))
@@ -178,7 +178,7 @@ impl<'a> Scanner<'a> {
 
     fn scan_identifier(&mut self) -> ScannerResult<Token> {
         while let Some(&c) = self.source.peek() {
-            if c.is_alphanumeric() || c == '_' {
+            if c.is_alphanumeric() || c == '_' || c == '#' {
                 self.advance();
             } else {
                 break;

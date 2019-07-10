@@ -12,13 +12,14 @@ pub enum NativeValue {
     Vector(RefCell<Vec<Value>>),
 }
 
+#[allow(irrefutable_let_patterns)]
 impl NativeValue {
-    pub fn into_vec(&self) -> Option<&RefCell<Vec<Value>>> {
+    pub fn into_vec(&self) -> &RefCell<Vec<Value>> {
         if let NativeValue::Vector(vec) = &self {
-            return Some(vec);
+            return vec;
         }
 
-        None
+        panic!("could not convert native value '{:?}' into a NativeValue::Vector", self);
     }
 }
 
