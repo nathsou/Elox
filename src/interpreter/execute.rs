@@ -6,7 +6,7 @@ use super::lox_function::LoxFunction;
 use super::value::{CallableValue, Value};
 use crate::interpreter::eval_result::{EvalError, EvalResult};
 use crate::interpreter::Interpreter;
-use crate::parser::expressions::{Expr, ExprCtx, ExprWithCtxt};
+use crate::parser::expressions::{Expr, ExprCtx};
 use crate::parser::statements::Stmt;
 use crate::parser::{Identifier, IdentifierHandle};
 use fnv::FnvHashMap;
@@ -107,12 +107,9 @@ impl Exec for Interpreter {
                     FnvHashMap::default();
 
                 for method in &class_decl.methods {
-                    let name_handle = method.expr.name.unwrap();
+                    let name_handle = method.name.unwrap();
                     let func = LoxFunction::new(
-                        ExprWithCtxt {
-                            expr: method.expr.clone(),
-                            pos: method.pos.clone(),
-                        },
+                        method.clone(),
                         environment.clone(),
                         name_handle.name == Identifier::init(),
                     );

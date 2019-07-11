@@ -14,8 +14,13 @@ module.exports = {
     module: {
         rules: [{
             test: /\.elox$/i,
-            use: 'file-loader',
-        }, ],
+            use: [{
+                loader: 'file-loader',
+                options: {
+                    name: '[name]_demo.[ext]',
+                },
+            }, ],
+        }],
     },
     mode: "production",
     plugins: [

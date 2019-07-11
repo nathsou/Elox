@@ -20,8 +20,8 @@ export function log(msg) {
   result.updateCode(messages);
 }
 
-export function error(err) {
-  log(`Error: ${err}`);
+export function error(err, line, col) {
+  log(`Error: [line ${line}:${col}]: ${err}`);
 }
 
 export function clock() {

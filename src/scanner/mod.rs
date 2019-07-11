@@ -3,7 +3,7 @@ pub mod token;
 use scanner_result::{ScannerError, ScannerResult};
 use std::iter::Peekable;
 use std::str::Chars;
-use token::{token_type::TokenType, Token, Position};
+use token::{token_type::TokenType, Position, Token};
 
 pub struct Scanner<'a> {
     source: Peekable<Chars<'a>>,
@@ -16,7 +16,7 @@ impl<'a> Scanner<'a> {
         Scanner {
             source,
             current_lexeme: "".into(),
-            pos: Position {line: 1, col: 1},
+            pos: Position { line: 1, col: 1 },
         }
     }
 
@@ -98,7 +98,13 @@ impl<'a> Scanner<'a> {
     }
 
     fn skip_line(&mut self) {
-        while self.source.peek() != None && self.source.peek() != Some(&'\n') {
+        while let Some(c) = self.source.peek() {
+            if c == &'\n' {
+                self.advance();
+                self.skip_whitespace();
+                return;
+            }
+
             self.advance();
         }
     }
@@ -219,7 +225,12 @@ impl<'a> Scanner<'a> {
     }
 
     fn token(&mut self, token_type: TokenType) -> Token {
-        Token::new(token_type, self.current_lexeme.clone(), self.pos.line, self.pos.col)
+        Token::new(
+            token_type,
+            self.current_lexeme.clone(),
+            self.pos.line,
+            self.pos.col,
+        )
     }
 
     fn identifier(&self) -> TokenType {

@@ -1,10 +1,31 @@
 
-class Test {
-    #str() {
-        return 3;
-    }
+class Doughnut {
+  cook() {
+    // fry
+    print "Fry until golden brown.";
+  }
 }
 
-var t = Test();
+class BostonCream < Doughnut {}
 
-print t;
+BostonCream().cook();
+
+class A {
+  method() {
+    print "A method";
+  }
+}
+
+class B < A {
+  method() {
+    print "B method";
+  }
+
+  test() {
+    super.method();
+  }
+}
+
+class C < B {}
+
+C().test();

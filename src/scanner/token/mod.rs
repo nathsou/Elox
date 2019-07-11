@@ -2,7 +2,7 @@ pub mod token_type;
 use std::fmt;
 use token_type::TokenType;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Position {
     pub line: usize,
     pub col: usize,

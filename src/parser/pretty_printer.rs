@@ -238,7 +238,7 @@ impl PrettyPrinter for ClassDeclStmt {
             self.identifier,
             self.methods
                 .iter()
-                .map(|stmt| format!("{}, ", stmt.expr.pretty_print()))
+                .map(|stmt| format!("{}, ", stmt.pretty_print()))
                 .collect::<String>()
         )
     }

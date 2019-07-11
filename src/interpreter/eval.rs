@@ -3,7 +3,7 @@ use super::eval_result::{EvalError, EvalResult};
 use super::lox_function::LoxFunction;
 use super::value::{CallableValue, Value};
 use crate::interpreter::Interpreter;
-use crate::parser::expressions::{BinaryOperator, BinaryOperatorCtx, ExprCtx, ExprWithCtxt, Expr, Literal, LogicalOperator, UnaryOperator};
+use crate::parser::expressions::{BinaryOperator, BinaryOperatorCtx, ExprCtx, Expr, Literal, LogicalOperator, UnaryOperator};
 use crate::parser::Identifier;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -31,7 +31,7 @@ impl Eval for Interpreter {
                             Ok(Value::Number(-nb))
                         } else {
                             Err(EvalError::UnexpectedUnaryOperatorOperand(
-                                expr.right.pos(),
+                                expr.right.pos,
                                 UnaryOperator::Minus,
                                 val,
                             ))
@@ -75,7 +75,7 @@ impl Eval for Interpreter {
                     return Ok(value);
                 }
 
-                Err(EvalError::UndefinedVariable(expr_ctx.pos(), self.name(var_expr.identifier.name)))
+                Err(EvalError::UndefinedVariable(expr_ctx.pos, self.name(var_expr.identifier.name)))
             }
             Expr::Assign(expr) => {
                 let assign_expr = expr.deref();
@@ -85,7 +85,7 @@ impl Eval for Interpreter {
                     return Ok(value);
                 }
 
-                Err(EvalError::UndefinedVariable(expr_ctx.pos(), self.name(assign_expr.identifier.name)))
+                Err(EvalError::UndefinedVariable(expr_ctx.pos, self.name(assign_expr.identifier.name)))
             }
             Expr::Logical(expr) => {
                 let left = self.eval(env, &expr.left)?;
@@ -119,20 +119,19 @@ impl Eval for Interpreter {
                         let callable = callable_value.into_callable();
                         if callable.arity() != args.len() {
                             let name = callable.name(&self.names);
-                            return Err(EvalError::WrongNumberOfArgs(expr_ctx.pos(), callable.arity(), args.len(), name));
+                            return Err(EvalError::WrongNumberOfArgs(expr_ctx.pos, callable.arity(), args.len(), name));
                         }
 
                         return Ok(callable.call(&self, env, args)?);
                     }
-                    _ => return Err(EvalError::ValueNotCallable(expr_ctx.pos(), callee.type_())),
+                    _ => return Err(EvalError::ValueNotCallable(expr_ctx.pos, callee.type_())),
                 }
             }
             Expr::Func(func_expr) => {
                 let func = LoxFunction::new(
-                    ExprWithCtxt {
-                        expr: func_expr.clone(),
-                        pos: expr_ctx.pos(),
-                }, env.clone(), false);
+                    func_expr.clone(),
+                    env.clone(), false
+                );
 
                 let f = Value::Callable(CallableValue::Function(Rc::new(func)));
 
@@ -150,12 +149,12 @@ impl Eval for Interpreter {
                     if let Some(prop_val) = instance.get(get_expr.property.name) {
                         return Ok(prop_val);
                     } else {
-                        return Err(EvalError::UndefinedProperty(expr_ctx.pos(), self.name(get_expr.property.name)));
+                        return Err(EvalError::UndefinedProperty(expr_ctx.pos, self.name(get_expr.property.name)));
                     }
                 }
 
                 Err(EvalError::OnlyInstancesHaveProperties(
-                    expr_ctx.pos(),
+                    expr_ctx.pos,
                     self.eval(env, &get_expr.object).unwrap().type_()))
             }
             Expr::Set(set_expr) => {
@@ -167,7 +166,7 @@ impl Eval for Interpreter {
                     return Ok(val);
                 }
 
-                Err(EvalError::OnlyInstancesHaveProperties(expr_ctx.pos(), self.eval(env, &set_expr.object).unwrap().type_()))
+                Err(EvalError::OnlyInstancesHaveProperties(expr_ctx.pos, self.eval(env, &set_expr.object).unwrap().type_()))
             }
             Expr::This(this_expr) => {
                 if let Some(this) = self.lookup_variable(env, &this_expr.identifier) {
@@ -191,7 +190,7 @@ impl Eval for Interpreter {
                                     ))));
                                 } else {
                                     return Err(EvalError::UndefinedProperty(
-                                        expr_ctx.pos(),
+                                        expr_ctx.pos,
                                         self.name(super_expr.method.name)
                                     ));
                                 }

@@ -6,7 +6,7 @@ use super::Environment;
 use super::Interpreter;
 
 use super::Value;
-use crate::parser::expressions::{FuncExpr, ExprWithCtxt};
+use crate::parser::expressions::FuncExpr;
 use crate::parser::{Identifier, IdentifierHandle, IdentifierNames};
 use std::rc::Rc;
 use crate::scanner::token::Position;
@@ -16,7 +16,7 @@ pub type NativeMethod = Fn(&LoxInstance, &mut NativesMap, &LoxFunction, &Interpr
 
 #[derive(Clone)]
 pub enum Func {
-    Expr(ExprWithCtxt<FuncExpr>),
+    Expr(FuncExpr),
     Native(Rc<NativeFunction>),
     NativeMethod(Rc<NativeMethod>)
 }
@@ -30,9 +30,9 @@ pub struct LoxFunction {
 }
 
 impl LoxFunction {
-    pub fn new(func_with_ctx: ExprWithCtxt<FuncExpr>, env: Environment, is_initializer: bool) -> LoxFunction {
+    pub fn new(func_with_ctx: FuncExpr, env: Environment, is_initializer: bool) -> LoxFunction {
         LoxFunction {
-            arity: func_with_ctx.expr.params.len(),
+            arity: func_with_ctx.params.len(),
             func: Func::Expr(func_with_ctx),
             env,
             is_initializer,
@@ -116,7 +116,7 @@ impl LoxCallable for LoxFunction {
             Func::Expr(func) => {
                 let func_env = Environment::new(Some(&self.env));
 
-                for (index, param) in func.expr.params.iter().enumerate() {
+                for (index, param) in func.params.iter().enumerate() {
                     func_env.define(param.name, args[index].clone());
                 }
 
@@ -130,7 +130,7 @@ impl LoxCallable for LoxFunction {
                     None
                 };
 
-                for stmt in &func.expr.body {
+                for stmt in &func.body {
                     match interpreter.exec(&func_env, stmt) {
                         Err(EvalError::Return(val)) => {
                             if let Some(this) = init_return {
@@ -160,7 +160,7 @@ impl LoxCallable for LoxFunction {
     fn name(&self, names: &Rc<IdentifierNames>) -> String {
         let handle = match &self.func {
             Func::Expr(func) => {
-                if let Some(handle) = func.expr.name {
+                if let Some(handle) = func.name {
                     handle.name
                 } else {
                     Identifier::anonymous()
@@ -179,7 +179,7 @@ impl std::fmt::Debug for LoxFunction {
             Func::Native(_) => "native",
             Func::NativeMethod(_) => "native method",
             Func::Expr(func) => {
-                if let Some(_) = &func.expr.name {
+                if let Some(_) = &func.name {
                     "func"
                 } else {
                     "anonymous"

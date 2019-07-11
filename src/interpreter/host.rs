@@ -1,9 +1,9 @@
-use std::time::SystemTime;
 use std::default::Default;
+use std::time::SystemTime;
 
 pub struct Host {
-    pub print: Box<Fn(String)>,
-    pub error: Box<Fn(String)>,
+    pub print: Box<Fn(String)>,               // msg
+    pub error: Box<Fn(String, usize, usize)>, // err_msg, line, col
     pub clock: Box<Fn() -> Option<f64>>,
 }
 
@@ -20,8 +20,8 @@ impl Default for Host {
 
                 None
             }),
-            error: Box::new(|err| {
-                    println!("Error: {}", err);
+            error: Box::new(|err, line, col| {
+                eprintln!("Error: [line {}:{}]: {}", line, col, err);
             }),
         }
     }

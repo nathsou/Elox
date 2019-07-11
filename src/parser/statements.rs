@@ -1,5 +1,5 @@
 use super::IdentifierUse;
-use crate::parser::expressions::{ExprCtx, FuncExpr, VarExpr, ExprWithCtxt};
+use crate::parser::expressions::{ExprCtx, FuncExpr, VarExpr};
 use super::Position;
 
 #[derive(Clone)]
@@ -102,11 +102,12 @@ impl WhileStmt {
 #[derive(Clone)]
 pub struct ReturnStmt {
     pub value: Option<ExprCtx>,
+    pub pos: Position,
 }
 
 impl ReturnStmt {
-    pub fn to_stmt(value: Option<ExprCtx>) -> Stmt {
-        Stmt::Return(ReturnStmt { value })
+    pub fn to_stmt(value: Option<ExprCtx>, pos: Position) -> Stmt {
+        Stmt::Return(ReturnStmt { value, pos })
     }
 }
 
@@ -114,12 +115,12 @@ impl ReturnStmt {
 pub struct ClassDeclStmt {
     pub identifier: IdentifierUse,
     pub superclass: Option<VarExpr>,
-    pub methods: Vec<ExprWithCtxt<FuncExpr>>,
+    pub methods: Vec<FuncExpr>,
     pub pos: Position,
 }
 
 impl ClassDeclStmt {
-    pub fn to_stmt(pos: Position, identifier: IdentifierUse, superclass: Option<VarExpr>, methods: Vec<ExprWithCtxt<FuncExpr>>) -> Stmt {
+    pub fn to_stmt(pos: Position, identifier: IdentifierUse, superclass: Option<VarExpr>, methods: Vec<FuncExpr>) -> Stmt {
         Stmt::ClassDecl(ClassDeclStmt {
             identifier, superclass, methods, pos
         })

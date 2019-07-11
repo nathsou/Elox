@@ -56,7 +56,7 @@ impl Lox {
     fn throw_error(&mut self, err: impl ErrorPosition) {
         self.had_error = true;
         let pos = err.position();
-        (self.host.error)(format!("[line {}:{}]: {}", pos.line, pos.col, err));
+        (self.host.error)(format!("{}", err), pos.line, pos.col);
     }
 
     pub fn run(&mut self, source: &str) {
@@ -86,11 +86,7 @@ impl Lox {
                             Err(err) => self.throw_error(err),
                         }
                     }
-                    Err(err) => {
-                        self.had_error = true;
-                        // let pos = err.position();
-                        (self.host.error)(format!("{}", err));
-                    }
+                    Err(err) => self.throw_error(err),
                 }
             }
             Err(err) => self.throw_error(err),

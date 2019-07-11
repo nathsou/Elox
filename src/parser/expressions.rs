@@ -37,16 +37,12 @@ pub enum Expr {
 #[derive(Clone)]
 pub struct ExprCtx {
     pub expr: Expr,
-    pos: Position,
+    pub pos: Position,
 }
 
 impl ExprCtx {
     pub fn new(expr: Expr, pos: Position) -> ExprCtx {
         ExprCtx { expr, pos }
-    }
-
-    pub fn pos(&self) -> Position {
-        self.pos.clone()
     }
 }
 
@@ -247,17 +243,12 @@ pub struct FuncExpr {
     pub name: Option<IdentifierUse>,
     pub params: Vec<IdentifierUse>,
     pub body: Vec<Stmt>,
-}
-
-#[derive(Clone)]
-pub struct ExprWithCtxt<T> {
-    pub expr: T,
     pub pos: Position,
 }
 
 impl FuncExpr {
     pub fn new(pos: Position, name: Option<IdentifierUse>, params: Vec<IdentifierUse>, body: Vec<Stmt>) -> ExprCtx {
-        let expr = Expr::Func(FuncExpr { name, params, body });
+        let expr = Expr::Func(FuncExpr { name, params, body, pos });
         ExprCtx::new(expr, pos)
     }
 }

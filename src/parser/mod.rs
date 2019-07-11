@@ -98,12 +98,12 @@ impl IdentifierHandlesGenerator {
         self.names.clone()
     }
 
-    fn next_with_name(&mut self, name: &str) -> IdentifierUse {
-        IdentifierUse::new(self.by_name(name), self.next_use_handle())
+    fn next_with_name(&mut self, name: &str, pos: Position) -> IdentifierUse {
+        IdentifierUse::new(self.by_name(name), self.next_use_handle(), pos)
     }
 
-    fn next_with_handle(&mut self, name: IdentifierHandle) -> IdentifierUse {
-        IdentifierUse::new(name, self.next_use_handle())
+    fn next_with_handle(&mut self, name: IdentifierHandle, pos: Position) -> IdentifierUse {
+        IdentifierUse::new(name, self.next_use_handle(), pos)
     }
 
     fn next_id_handle(&mut self) -> IdentifierHandle {
@@ -132,10 +132,11 @@ impl IdentifierHandlesGenerator {
     }
 }
 
-#[derive(Hash, Eq, PartialEq, Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct IdentifierUse {
     pub name: IdentifierHandle,
     pub use_handle: IdentifierUseHandle,
+    pub pos: Position,
 }
 
 impl std::fmt::Display for IdentifierUse {
@@ -145,8 +146,8 @@ impl std::fmt::Display for IdentifierUse {
 }
 
 impl IdentifierUse {
-    pub fn new(name: IdentifierHandle, use_handle: IdentifierUseHandle) -> IdentifierUse {
-        IdentifierUse { name, use_handle }
+    pub fn new(name: IdentifierHandle, use_handle: IdentifierUseHandle, pos: Position) -> IdentifierUse {
+        IdentifierUse { name, use_handle, pos }
     }
 }
 
@@ -262,7 +263,7 @@ impl<'a> Parser<'a> {
                         identifier: parent_class,
                     });
                 } else {
-                    return Err(ParserError::ExpectedSuperclassName(self.pos.clone()));
+                    return Err(ParserError::ExpectedSuperclassName(self.pos));
                 }
             }
 
@@ -271,17 +272,13 @@ impl<'a> Parser<'a> {
 
                 while !self.match_next(RightBrace)? {
                     let func = self.function_declaration()?;
-                    let pos = func.pos();
                     match func.expr {
                         Expr::Func(f) => {
-                            methods.push(ExprWithCtxt {
-                                expr: f,
-                                pos,
-                            });
+                            methods.push(f);
                         }
                         _ => {
                             return Err(ParserError::ExpectedMethodDeclarationInClass(
-                                self.pos.clone(),
+                                self.pos,
                                 name.name,
                             ))
                         }
@@ -290,24 +287,24 @@ impl<'a> Parser<'a> {
 
                 if !self.consume(RightBrace)? {
                     return Err(ParserError::ExpectedRightBraceAfterClassBody(
-                        self.pos.clone(),
+                        self.pos,
                     ));
                 }
 
-                return Ok(ClassDeclStmt::to_stmt(self.pos.clone(), name, superclass, methods));
+                return Ok(ClassDeclStmt::to_stmt(self.pos, name, superclass, methods));
             } else {
                 return Err(ParserError::ExpectedLeftBraceBeforeClassBody(
-                    self.pos.clone(),
+                    self.pos,
                 ));
             }
         } else {
-            return Err(ParserError::ExpectedClassName(self.pos.clone()));
+            return Err(ParserError::ExpectedClassName(self.pos));
         }
     }
 
     fn function_declaration(&mut self) -> ParserResult<ExprCtx> {
         let name = self.consume_identifier()?;
-        let pos = self.pos.clone();
+        let pos = self.pos;
 
         if self.consume(LeftParen)? {
             let mut params = Vec::new();
@@ -317,7 +314,7 @@ impl<'a> Parser<'a> {
                     if let Some(param) = self.consume_identifier()? {
                         params.push(param);
                     } else {
-                        return Err(ParserError::ExpectedFuncParamName(self.pos.clone()));
+                        return Err(ParserError::ExpectedFuncParamName(self.pos));
                     }
 
                     if !self.consume(Comma)? {
@@ -328,13 +325,13 @@ impl<'a> Parser<'a> {
 
             if !self.consume(RightParen)? {
                 return Err(ParserError::ExpectedRightParenAfterCallExpr(
-                    self.pos.clone(),
+                    self.pos,
                 ));
             }
 
             if !self.consume(LeftBrace)? {
                 return Err(ParserError::ExpectedLeftBraceBeforeFuncBody(
-                    self.pos.clone(),
+                    self.pos,
                 ));
             }
 
@@ -343,7 +340,7 @@ impl<'a> Parser<'a> {
             return Ok(FuncExpr::new(pos.clone(), name, params, body));
         } else {
             Err(ParserError::ExpectedRightParenAfterCallExpr(
-                self.pos.clone(),
+                self.pos,
             ))
         }
     }
@@ -353,6 +350,7 @@ impl<'a> Parser<'a> {
             return Ok(Some(IdentifierUse::new(
                 self.identifiers.by_name(&name),
                 self.identifiers.next_use_handle(),
+                self.pos
             )));
         }
 
@@ -378,18 +376,18 @@ impl<'a> Parser<'a> {
             }
 
             if !self.consume(SemiColon)? {
-                return Err(ParserError::ExpectedSemicolonAfterExpr(self.pos.clone()));
+                return Err(ParserError::ExpectedSemicolonAfterExpr(self.pos));
             }
 
             return Ok(VarDeclStmt::to_stmt(identifier, initializer));
         } else {
             if let Some(Ok(tok)) = self.tokens.peek() {
                 return Err(ParserError::ExpectedVarName(
-                    self.pos.clone(),
+                    self.pos,
                     tok.lexeme.clone(),
                 ));
             } else {
-                return Err(ParserError::ExpectedStatement(self.pos.clone()));
+                return Err(ParserError::ExpectedStatement(self.pos));
             }
         }
     }
@@ -426,7 +424,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Err(ParserError::ExpectedStatement(self.pos.clone()))
+        Err(ParserError::ExpectedStatement(self.pos))
     }
 
     fn return_stmt(&mut self) -> ParserResult<Stmt> {
@@ -438,11 +436,11 @@ impl<'a> Parser<'a> {
 
         if !self.consume(SemiColon)? {
             return Err(ParserError::ExpectedSemiColonAfterReturnValue(
-                self.pos.clone(),
+                self.pos,
             ));
         }
 
-        Ok(ReturnStmt::to_stmt(value))
+        Ok(ReturnStmt::to_stmt(value, self.pos))
     }
 
     // forStmt → "for" "(" ( varDecl | exprStmt | ";" ) expression? ";" expression? ")" statement ;
@@ -464,7 +462,7 @@ impl<'a> Parser<'a> {
 
             if !self.consume(SemiColon)? {
                 return Err(ParserError::ExpectedSemicolonAfterLoopCondition(
-                    self.pos.clone(),
+                    self.pos,
                 ));
             }
 
@@ -476,7 +474,7 @@ impl<'a> Parser<'a> {
 
             if !self.consume(RightParen)? {
                 return Err(ParserError::ExpectedRightParenAfterForClauses(
-                    self.pos.clone(),
+                    self.pos,
                 ));
             }
 
@@ -490,7 +488,7 @@ impl<'a> Parser<'a> {
                 if let Some(cond) = condition {
                     cond
                 } else {
-                    Literal::new(self.pos.clone(), Literal::Boolean(true))
+                    Literal::new(self.pos, Literal::Boolean(true))
                 },
                 body,
             );
@@ -501,7 +499,7 @@ impl<'a> Parser<'a> {
 
             Ok(body)
         } else {
-            Err(ParserError::ExpectedLeftParenAfterLoop(self.pos.clone()))
+            Err(ParserError::ExpectedLeftParenAfterLoop(self.pos))
         }
     }
 
@@ -514,10 +512,10 @@ impl<'a> Parser<'a> {
 
                 Ok(WhileStmt::to_stmt(condition, body))
             } else {
-                Err(ParserError::ExpectedRightParenAfterLoop(self.pos.clone()))
+                Err(ParserError::ExpectedRightParenAfterLoop(self.pos))
             }
         } else {
-            Err(ParserError::ExpectedLeftParenAfterLoop(self.pos.clone()))
+            Err(ParserError::ExpectedLeftParenAfterLoop(self.pos))
         }
     }
 
@@ -526,7 +524,7 @@ impl<'a> Parser<'a> {
 
         while self.consume(Or)? {
             let right = self.and_expr()?;
-            expr_ctx = LogicalExpr::new(self.pos.clone(), expr_ctx, LogicalOperator::Or, right);
+            expr_ctx = LogicalExpr::new(self.pos, expr_ctx, LogicalOperator::Or, right);
         }
 
         Ok(expr_ctx)
@@ -537,7 +535,7 @@ impl<'a> Parser<'a> {
 
         while self.consume(And)? {
             let right = self.equality()?;
-            expr_ctx = LogicalExpr::new(self.pos.clone(), expr_ctx, LogicalOperator::And, right);
+            expr_ctx = LogicalExpr::new(self.pos, expr_ctx, LogicalOperator::And, right);
         }
 
         Ok(expr_ctx)
@@ -556,10 +554,10 @@ impl<'a> Parser<'a> {
 
                 Ok(IfStmt::to_stmt(condition, then_branch, else_branch))
             } else {
-                Err(ParserError::ExpectedRightParenAfterIf(self.pos.clone()))
+                Err(ParserError::ExpectedRightParenAfterIf(self.pos))
             }
         } else {
-            Err(ParserError::ExpectedLeftParenAfterIf(self.pos.clone()))
+            Err(ParserError::ExpectedLeftParenAfterIf(self.pos))
         }
     }
 
@@ -578,7 +576,7 @@ impl<'a> Parser<'a> {
             return Ok(BlockStmt { stmts });
         }
 
-        Err(ParserError::ExpectedRightBraceAfterBlock(self.pos.clone()))
+        Err(ParserError::ExpectedRightBraceAfterBlock(self.pos))
     }
 
     fn print_stmt(&mut self) -> ParserResult<Stmt> {
@@ -588,7 +586,7 @@ impl<'a> Parser<'a> {
             return Ok(PrintStmt::to_stmt(value));
         }
 
-        Err(ParserError::ExpectedSemicolonAfterExpr(self.pos.clone()))
+        Err(ParserError::ExpectedSemicolonAfterExpr(self.pos))
     }
 
     fn expr_stmt(&mut self) -> ParserResult<Stmt> {
@@ -598,7 +596,7 @@ impl<'a> Parser<'a> {
             return Ok(ExprStmt::to_stmt(expr_ctx));
         }
 
-        Err(ParserError::ExpectedSemicolonAfterExpr(self.pos.clone()))
+        Err(ParserError::ExpectedSemicolonAfterExpr(self.pos))
     }
 
     // expression     → equality ;
@@ -622,24 +620,24 @@ impl<'a> Parser<'a> {
                     self.next();
                     let val = self.assignment()?;
                     let op = BinaryOperator::from_token_type(&token_type).unwrap();
-                    Some(BinaryExpr::new(self.pos.clone(), expr_ctx.clone(), op, val))
+                    Some(BinaryExpr::new(self.pos, expr_ctx.clone(), op, val))
                 }
                 PlusPlus => {
                     self.next();
                     Some(BinaryExpr::new(
-                        self.pos.clone(),
+                        self.pos,
                         expr_ctx.clone(),
                         BinaryOperator::Plus,
-                        Literal::new(self.pos.clone(), Literal::Number(1f64)),
+                        Literal::new(self.pos, Literal::Number(1f64)),
                     ))
                 }
                 MinusMinus => {
                     self.next();
                     Some(BinaryExpr::new(
-                        self.pos.clone(),
+                        self.pos,
                         expr_ctx.clone(),
                         BinaryOperator::Minus,
-                        Literal::new(self.pos.clone(), Literal::Number(1f64)),
+                        Literal::new(self.pos, Literal::Number(1f64)),
                     ))
                 }
                 _ => None,
@@ -647,25 +645,25 @@ impl<'a> Parser<'a> {
 
             if let Some(right_val) = right_value {
                 match expr_ctx.expr {
-                    Expr::Var(v) => return Ok(AssignExpr::new(self.pos.clone(), v.identifier, right_val)),
-                    Expr::Get(g) => return Ok(SetExpr::new(self.pos.clone(), g.property, g.object, right_val)),
-                    Expr::Call(expr_ctx) => {
-                        if let Expr::Get(access) = expr_ctx.callee.expr {
+                    Expr::Var(v) => return Ok(AssignExpr::new(self.pos, v.identifier, right_val)),
+                    Expr::Get(g) => return Ok(SetExpr::new(self.pos, g.property, g.object, right_val)),
+                    Expr::Call(call_expr_ctx) => {
+                        if let Expr::Get(access) = call_expr_ctx.callee.expr {
                             if access.property.name == Identifier::get() {
                                 let set = self
                                     .identifiers
-                                    .next_with_handle(Identifier::set());
-                                let mut args = expr_ctx.args;
+                                    .next_with_handle(Identifier::set(), expr_ctx.pos);
+                                let mut args = call_expr_ctx.args;
                                 args.push(right_val);
-                                return Ok(CallExpr::new(self.pos.clone(), GetExpr::new(self.pos.clone(), set, access.object), args));
+                                return Ok(CallExpr::new(self.pos, GetExpr::new(self.pos, set, access.object), args));
                             } else {
-                                return Err(ParserError::InvalidAssignmentTarget(self.pos.clone()));
+                                return Err(ParserError::InvalidAssignmentTarget(self.pos));
                             }
                         }
 
-                        return Err(ParserError::InvalidAssignmentTarget(self.pos.clone()));
+                        return Err(ParserError::InvalidAssignmentTarget(self.pos));
                     }
-                    _ => return Err(ParserError::InvalidAssignmentTarget(self.pos.clone())),
+                    _ => return Err(ParserError::InvalidAssignmentTarget(self.pos)),
                 };
             }
         }
@@ -764,7 +762,7 @@ impl<'a> Parser<'a> {
 
         while let Some(op) = self.match_equality()? {
             let right = self.comparison()?;
-            expr_ctx = BinaryExpr::new(self.pos.clone(), expr_ctx, op, right);
+            expr_ctx = BinaryExpr::new(self.pos, expr_ctx, op, right);
         }
 
         Ok(expr_ctx)
@@ -776,7 +774,7 @@ impl<'a> Parser<'a> {
 
         while let Some(op) = self.match_comparison()? {
             let right = self.addition()?;
-            expr_ctx = BinaryExpr::new(self.pos.clone(), expr_ctx, op, right);
+            expr_ctx = BinaryExpr::new(self.pos, expr_ctx, op, right);
         }
 
         Ok(expr_ctx)
@@ -787,7 +785,7 @@ impl<'a> Parser<'a> {
 
         while let Some(op) = self.match_addition()? {
             let right = self.multiplication()?;
-            expr_ctx = BinaryExpr::new(self.pos.clone(), expr_ctx, op, right);
+            expr_ctx = BinaryExpr::new(self.pos, expr_ctx, op, right);
         }
 
         Ok(expr_ctx)
@@ -798,7 +796,7 @@ impl<'a> Parser<'a> {
 
         while let Some(op) = self.match_multiplication()? {
             let right = self.unary()?;
-            expr_ctx = BinaryExpr::new(self.pos.clone(), expr_ctx, op, right);
+            expr_ctx = BinaryExpr::new(self.pos, expr_ctx, op, right);
         }
 
         Ok(expr_ctx)
@@ -807,7 +805,7 @@ impl<'a> Parser<'a> {
     fn unary(&mut self) -> ParserResult<ExprCtx> {
         if let Some(op) = self.match_unary()? {
             let right = self.unary()?;
-            return Ok(UnaryExpr::new(self.pos.clone(), op, right));
+            return Ok(UnaryExpr::new(self.pos, op, right));
         }
 
         self.call()
@@ -823,13 +821,13 @@ impl<'a> Parser<'a> {
                 // array access
                 let prop = self
                     .identifiers
-                    .next_with_handle(Identifier::get());
-                expr_ctx = self.finish_array_access(GetExpr::new(self.pos.clone(), prop, expr_ctx))?;
+                    .next_with_handle(Identifier::get(), expr_ctx.pos);
+                expr_ctx = self.finish_array_access(GetExpr::new(self.pos, prop, expr_ctx))?;
             } else if self.consume(Dot)? {
                 if let Some(prop) = self.consume_identifier()? {
-                    expr_ctx = GetExpr::new(self.pos.clone(), prop, expr_ctx);
+                    expr_ctx = GetExpr::new(self.pos, prop, expr_ctx);
                 } else {
-                    return Err(ParserError::ExpectedPropertyNameAfterDot(self.pos.clone()));
+                    return Err(ParserError::ExpectedPropertyNameAfterDot(self.pos));
                 }
             } else {
                 break;
@@ -853,11 +851,11 @@ impl<'a> Parser<'a> {
 
         if !self.consume(RightParen)? {
             return Err(ParserError::ExpectedRightParenAfterCallExpr(
-                self.pos.clone(),
+                self.pos,
             ));
         }
 
-        Ok(CallExpr::new(self.pos.clone(), expr_ctx, args))
+        Ok(CallExpr::new(self.pos, expr_ctx, args))
     }
 
     fn finish_array_access(&mut self, expr_ctx: ExprCtx) -> ParserResult<ExprCtx> {
@@ -874,11 +872,11 @@ impl<'a> Parser<'a> {
 
         if !self.consume(RightBracket)? {
             return Err(ParserError::ExpectedRightParenAfterCallExpr(
-                self.pos.clone(),
+                self.pos,
             ));
         }
 
-        Ok(CallExpr::new(self.pos.clone(), expr_ctx, args))
+        Ok(CallExpr::new(self.pos, expr_ctx, args))
     }
 
     fn primary(&mut self) -> ParserResult<ExprCtx> {
@@ -886,56 +884,56 @@ impl<'a> Parser<'a> {
 
         match next.token_type {
             Nil => {
-                return Ok(Literal::new(self.pos.clone(), Literal::Nil));
+                return Ok(Literal::new(next.pos, Literal::Nil));
             }
             True => {
-                return Ok(Literal::new(self.pos.clone(), Literal::Boolean(true)));
+                return Ok(Literal::new(next.pos, Literal::Boolean(true)));
             }
             False => {
-                return Ok(Literal::new(self.pos.clone(), Literal::Boolean(false)));
+                return Ok(Literal::new(next.pos, Literal::Boolean(false)));
             }
             Number(nb) => {
-                return Ok(Literal::new(self.pos.clone(), Literal::Number(nb.clone())));
+                return Ok(Literal::new(next.pos, Literal::Number(nb.clone())));
             }
             String(s) => {
-                return Ok(Literal::new(self.pos.clone(), Literal::String(s.clone())));
+                return Ok(Literal::new(next.pos, Literal::String(s.clone())));
             }
             LeftParen => {
                 let expr_ctx = self.expression()?;
                 if self.consume(RightParen)? {
-                    return Ok(GroupingExpr::new(self.pos.clone(), expr_ctx));
+                    return Ok(GroupingExpr::new(next.pos, expr_ctx));
                 } else {
-                    return Err(ParserError::UnmatchingClosingParen(self.pos.clone()));
+                    return Err(ParserError::UnmatchingClosingParen(next.pos));
                 }
             }
             Identifier(name) => {
                 return Ok(VarExpr::new(
-                    self.pos.clone(),
-                    self.identifiers.next_with_name(&name),
+                    next.pos,
+                    self.identifiers.next_with_name(&name, next.pos),
                 ))
             }
             Fun => self.function_declaration(),
             This => Ok(ThisExpr::new(
-                self.pos.clone(),
+                self.pos,
                 self
                     .identifiers
-                    .next_with_handle(Identifier::this()),
+                    .next_with_handle(Identifier::this(), next.pos),
             )),
             Super => {
                 if self.consume(Dot)? {
                     if let Some(method) = self.consume_identifier()? {
                         return Ok(SuperExpr::new(
-                            self.pos.clone(), 
+                            next.pos, 
                             self.identifiers
-                                .next_with_handle(Identifier::super_()),
+                                .next_with_handle(Identifier::super_(), next.pos),
                             method,
                         ));
                     }
                 }
 
-                Err(ParserError::ExpectedSuperclassMethodName(self.pos.clone()))
+                Err(ParserError::ExpectedSuperclassMethodName(next.pos))
             }
-            _ => Err(ParserError::UnexpectedToken(self.pos.clone(), next.lexeme)),
+            _ => Err(ParserError::UnexpectedToken(next.pos, next.lexeme)),
         }
     }
 
