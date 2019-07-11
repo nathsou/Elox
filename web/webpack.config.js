@@ -9,7 +9,13 @@ module.exports = {
         path: path.resolve(__dirname, "dist"),
     },
     resolve: {
-        extensions: ['.js', '.wasm']
+        extensions: ['.js', '.wasm', '.elox']
+    },
+    module: {
+        rules: [{
+            test: /\.elox$/i,
+            use: 'file-loader',
+        }, ],
     },
     mode: "production",
     plugins: [

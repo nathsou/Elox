@@ -1,3 +1,4 @@
+use super::eval_result::EvalResult;
 use super::lox_class::LoxClass;
 use super::lox_function::LoxFunction;
 use super::lox_instance::{LoxInstance, NativesMap};
@@ -156,6 +157,36 @@ pub fn create_lox_array_class(
             false,
             0,
             length_handle,
+        )),
+    );
+
+    methods.insert(
+        Identifier::str_(),
+        Rc::new(LoxFunction::new_native_method(
+            Rc::new(
+                |_this: &LoxInstance,
+                 natives: &mut NativesMap,
+                 _func: &LoxFunction,
+                 interpreter: &Interpreter,
+                 _env: &Environment,
+                 _args: Vec<Value>| {
+                    let values = natives.get(&vec_handle()).unwrap().into_vec().borrow();
+
+                    let to_str = values
+                        .iter()
+                        .map(|val| val.to_str(interpreter))
+                        .collect::<EvalResult<Vec<String>>>();
+
+                    match to_str {
+                        Ok(strings) => Ok(Value::String(format!("[{}]", strings.join(", ")))),
+                        Err(err) => Err(err),
+                    }
+                },
+            ),
+            env.clone(),
+            false,
+            0,
+            Identifier::str_(),
         )),
     );
 

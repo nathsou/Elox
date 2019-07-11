@@ -2,7 +2,9 @@ pub mod expressions;
 pub mod parser_result;
 pub mod pretty_printer;
 pub mod statements;
+use crate::scanner::scanner_result::ScannerResult;
 use crate::scanner::token::token_type::{TokenType, TokenType::*};
+use crate::scanner::token::{Position, Token};
 use crate::scanner::Scanner;
 use expressions::*;
 use fnv::FnvHashMap;
@@ -153,6 +155,7 @@ impl IdentifierUse {
 pub struct Parser<'a> {
     tokens: Peekable<Scanner<'a>>,
     identifiers: IdentifierHandlesGenerator,
+    pos: Position,
 }
 
 impl<'a> Parser<'a> {
@@ -160,6 +163,7 @@ impl<'a> Parser<'a> {
         Parser {
             tokens,
             identifiers,
+            pos: Position { line: 1, col: 1 },
         }
     }
 
@@ -167,10 +171,30 @@ impl<'a> Parser<'a> {
         self.identifiers.names()
     }
 
+    fn next(&mut self) -> Option<ScannerResult<Token>> {
+        let token = self.tokens.next();
+
+        if let Some(Ok(tok)) = &token {
+            self.pos.line = tok.pos.line;
+            self.pos.col = tok.pos.col;
+            // println!("[{}:{}] : {:?}", self.pos.line, self.pos.col, tok);
+        }
+
+        token
+    }
+
+    fn peek_token_type(&mut self) -> ParserResult<TokenType> {
+        match self.tokens.peek() {
+            Some(Ok(token)) => Ok(token.token_type.clone()),
+            Some(Err(err)) => Err(ParserError::ScannerError(err.clone())),
+            None => Ok(EOF),
+        }
+    }
+
     pub fn parse(&mut self) -> ParserResult<Vec<Stmt>> {
         let mut stmts = Vec::new();
-        while let Some(Ok(tok)) = self.tokens.peek() {
-            match tok.token_type {
+        loop {
+            match self.peek_token_type()? {
                 EOF => break,
                 _ => {
                     let stmt = self.declaration()?;
@@ -184,45 +208,38 @@ impl<'a> Parser<'a> {
         Ok(stmts)
     }
 
-    fn consume(&mut self, token_type: TokenType) -> bool {
-        if let Some(Ok(token)) = self.tokens.peek() {
-            if token.token_type == token_type {
-                self.tokens.next();
-                return true;
-            }
+    fn consume(&mut self, token_type: TokenType) -> ParserResult<bool> {
+
+        if self.peek_token_type()? == token_type {
+            self.next();
+            return Ok(true);
         }
 
-        false
+        Ok(false)
     }
 
-    fn match_next(&mut self, token_type: TokenType) -> bool {
-        if let Some(Ok(token)) = self.tokens.peek() {
-            return token.token_type == token_type;
-        }
-
-        false
+    fn match_next(&mut self, token_type: TokenType) -> ParserResult<bool> {
+        Ok(self.peek_token_type()? == token_type)
     }
 
     fn declaration(&mut self) -> ParserResult<Stmt> {
         let mut res: Option<ParserResult<Stmt>> = None;
 
-        if let Some(Ok(token)) = self.tokens.peek() {
-            match token.token_type {
+            match self.peek_token_type()? {
                 Fun => {
-                    self.tokens.next();
+                    self.next();
                     let f = self.function_declaration()?;
                     res = Some(Ok(ExprStmt::to_stmt(f)));
                 }
                 Var => {
-                    self.tokens.next();
+                    self.next();
                     res = Some(self.var_declaration());
                 }
                 Class => {
-                    self.tokens.next();
+                    self.next();
                     res = Some(self.class_declaration());
                 }
                 _ => {}
-            }
         }
 
         if let Some(res) = res {
@@ -239,122 +256,136 @@ impl<'a> Parser<'a> {
     }
 
     fn class_declaration(&mut self) -> ParserResult<Stmt> {
-        if let Some(name) = self.consume_identifier() {
+        if let Some(name) = self.consume_identifier()? {
             let mut superclass = None;
 
-            if self.consume(Less) {
-                if let Some(parent_class) = self.consume_identifier() {
+            if self.consume(Less)? {
+                if let Some(parent_class) = self.consume_identifier()? {
                     superclass = Some(VarExpr {
                         identifier: parent_class,
                     });
                 } else {
-                    return Err(ParserError::ExpectedSuperclassName());
+                    return Err(ParserError::ExpectedSuperclassName(self.pos.clone()));
                 }
             }
 
-            if self.consume(LeftBrace) {
+            if self.consume(LeftBrace)? {
                 let mut methods = Vec::new();
 
-                while !self.match_next(RightBrace) {
+                while !self.match_next(RightBrace)? {
                     let func = self.function_declaration()?;
                     match func {
                         Expr::Func(f) => {
                             methods.push(f);
                         }
-                        _ => return Err(ParserError::ExpectedMethodDeclarationInClass(name.name)),
+                        _ => {
+                            return Err(ParserError::ExpectedMethodDeclarationInClass(
+                                self.pos.clone(),
+                                name.name,
+                            ))
+                        }
                     }
                 }
 
-                if !self.consume(RightBrace) {
-                    return Err(ParserError::ExpectedRightBraceAfterClassBody());
+                if !self.consume(RightBrace)? {
+                    return Err(ParserError::ExpectedRightBraceAfterClassBody(
+                        self.pos.clone(),
+                    ));
                 }
 
                 return Ok(ClassDeclStmt::to_stmt(name, superclass, methods));
             } else {
-                return Err(ParserError::ExpectedLeftBraceBeforeClassBody());
+                return Err(ParserError::ExpectedLeftBraceBeforeClassBody(
+                    self.pos.clone(),
+                ));
             }
         } else {
-            return Err(ParserError::ExpectedClassName());
+            return Err(ParserError::ExpectedClassName(self.pos.clone()));
         }
     }
 
     fn function_declaration(&mut self) -> ParserResult<Expr> {
-        let name = self.consume_identifier();
+        let name = self.consume_identifier()?;
 
-        if self.consume(LeftParen) {
+        if self.consume(LeftParen)? {
             let mut params = Vec::new();
 
-            if !self.match_next(RightParen) {
+            if !self.match_next(RightParen)? {
                 loop {
-                    if let Some(param) = self.consume_identifier() {
+                    if let Some(param) = self.consume_identifier()? {
                         params.push(param);
                     } else {
-                        return Err(ParserError::ExpectedFuncParamName());
+                        return Err(ParserError::ExpectedFuncParamName(self.pos.clone()));
                     }
 
-                    if !self.consume(Comma) {
+                    if !self.consume(Comma)? {
                         break;
                     }
                 }
             }
 
-            if !self.consume(RightParen) {
-                return Err(ParserError::ExpectedRightParenAfterCallExpr());
+            if !self.consume(RightParen)? {
+                return Err(ParserError::ExpectedRightParenAfterCallExpr(
+                    self.pos.clone(),
+                ));
             }
 
-            if !self.consume(LeftBrace) {
-                return Err(ParserError::ExpectedLeftBraceBeforeFuncBody());
+            if !self.consume(LeftBrace)? {
+                return Err(ParserError::ExpectedLeftBraceBeforeFuncBody(
+                    self.pos.clone(),
+                ));
             }
 
             let body = ((self.block()?) as BlockStmt).stmts;
 
             return Ok(FuncExpr::new(name, params, body));
         } else {
-            Err(ParserError::ExpectedRightParenAfterLoop())
+            Err(ParserError::ExpectedRightParenAfterCallExpr(self.pos.clone()))
         }
     }
 
-    fn match_identifier(&mut self) -> Option<IdentifierUse> {
-        if let Some(Ok(token)) = self.tokens.peek() {
-            if let Identifier(name) = &token.token_type {
-                return Some(IdentifierUse::new(
-                    self.identifiers.by_name(name),
-                    self.identifiers.next_use_handle(),
-                ));
-            }
+    fn match_identifier(&mut self) -> ParserResult<Option<IdentifierUse>> {
+        if let Identifier(name) = self.peek_token_type()? {
+            return Ok(Some(IdentifierUse::new(
+                self.identifiers.by_name(&name),
+                self.identifiers.next_use_handle(),
+            )));
         }
 
-        None
+        Ok(None)
     }
 
-    fn consume_identifier(&mut self) -> Option<IdentifierUse> {
-        if let Some(identifier) = self.match_identifier() {
-            self.tokens.next();
-            return Some(identifier);
+    fn consume_identifier(&mut self) -> ParserResult<Option<IdentifierUse>> {
+        if let Some(identifier) = self.match_identifier()? {
+            self.next();
+            return Ok(Some(identifier));
         }
 
-        None
+        Ok(None)
     }
 
     fn var_declaration(&mut self) -> ParserResult<Stmt> {
-        if let Some(identifier) = self.match_identifier() {
-            self.tokens.next();
+        if let Some(identifier) = self.match_identifier()? {
+            self.next();
             let mut initializer: Option<Expr> = None;
 
-            if self.consume(Equal) {
+            if self.consume(Equal)? {
                 initializer = Some(self.expression()?);
             }
 
-            if !self.consume(SemiColon) {
-                return Err(ParserError::ExpectedSemicolonAfterExpr());
+            if !self.consume(SemiColon)? {
+                return Err(ParserError::ExpectedSemicolonAfterExpr(self.pos.clone()));
             }
 
             return Ok(VarDeclStmt::to_stmt(identifier, initializer));
         } else {
             if let Some(Ok(tok)) = self.tokens.peek() {
-                return Err(ParserError::ExpectedVarName(tok.token_type.clone()));
+                return Err(ParserError::ExpectedVarName(
+                    self.pos.clone(),
+                    tok.lexeme.clone()
+                ));
             } else {
-                return Err(ParserError::ExpectedStatement());
+                return Err(ParserError::ExpectedStatement(self.pos.clone()));
             }
         }
     }
@@ -363,46 +394,48 @@ impl<'a> Parser<'a> {
         if let Some(Ok(token)) = self.tokens.peek() {
             match token.token_type {
                 For => {
-                    self.tokens.next();
+                    self.next();
                     return self.for_stmt();
                 }
                 If => {
-                    self.tokens.next();
+                    self.next();
                     return self.if_stmt();
                 }
                 Print => {
                     // consumme the print token
-                    self.tokens.next();
+                    self.next();
                     return self.print_stmt();
                 }
                 Return => {
-                    self.tokens.next();
+                    self.next();
                     return self.return_stmt();
                 }
                 While => {
-                    self.tokens.next();
+                    self.next();
                     return self.while_stmt();
                 }
                 LeftBrace => {
-                    self.tokens.next();
+                    self.next();
                     return Ok(Stmt::Block(self.block()?));
                 }
                 _ => return self.expr_stmt(),
             }
         }
 
-        Err(ParserError::ExpectedStatement())
+        Err(ParserError::ExpectedStatement(self.pos.clone()))
     }
 
     fn return_stmt(&mut self) -> ParserResult<Stmt> {
         let mut value: Option<Expr> = None;
 
-        if !self.match_next(SemiColon) {
+        if !self.match_next(SemiColon)? {
             value = Some(self.expression()?);
         }
 
-        if !self.consume(SemiColon) {
-            return Err(ParserError::ExpectedSemiColonAfterReturnValue());
+        if !self.consume(SemiColon)? {
+            return Err(ParserError::ExpectedSemiColonAfterReturnValue(
+                self.pos.clone(),
+            ));
         }
 
         Ok(ReturnStmt::to_stmt(value))
@@ -410,10 +443,10 @@ impl<'a> Parser<'a> {
 
     // forStmt → "for" "(" ( varDecl | exprStmt | ";" ) expression? ";" expression? ")" statement ;
     fn for_stmt(&mut self) -> ParserResult<Stmt> {
-        if self.consume(LeftParen) {
+        if self.consume(LeftParen)? {
             let mut initializer;
 
-            if self.consume(Var) {
+            if self.consume(Var)? {
                 initializer = Some(self.var_declaration()?);
             } else {
                 initializer = Some(self.expr_stmt()?);
@@ -421,22 +454,26 @@ impl<'a> Parser<'a> {
 
             let mut condition = None;
 
-            if !self.match_next(SemiColon) {
+            if !self.match_next(SemiColon)? {
                 condition = Some(self.expression()?);
             }
 
-            if !self.consume(SemiColon) {
-                return Err(ParserError::ExpectedSemicolonAfterLoopCondition());
+            if !self.consume(SemiColon)? {
+                return Err(ParserError::ExpectedSemicolonAfterLoopCondition(
+                    self.pos.clone(),
+                ));
             }
 
             let mut increment = None;
 
-            if !self.match_next(RightParen) {
+            if !self.match_next(RightParen)? {
                 increment = Some(self.expression()?);
             }
 
-            if !self.consume(RightParen) {
-                return Err(ParserError::ExpectedRightParenAfterForClauses());
+            if !self.consume(RightParen)? {
+                return Err(ParserError::ExpectedRightParenAfterForClauses(
+                    self.pos.clone(),
+                ));
             }
 
             let mut body = self.statement()?;
@@ -460,30 +497,30 @@ impl<'a> Parser<'a> {
 
             Ok(body)
         } else {
-            Err(ParserError::ExpectedLeftParenAfterLoop())
+            Err(ParserError::ExpectedLeftParenAfterLoop(self.pos.clone()))
         }
     }
 
     // whileStmt → "while" "(" expression ")" statement ;
     fn while_stmt(&mut self) -> ParserResult<Stmt> {
-        if self.consume(LeftParen) {
+        if self.consume(LeftParen)? {
             let condition = self.expression()?;
-            if self.consume(RightParen) {
+            if self.consume(RightParen)? {
                 let body = self.statement()?;
 
                 Ok(WhileStmt::to_stmt(condition, body))
             } else {
-                Err(ParserError::ExpectedRightParenAfterLoop())
+                Err(ParserError::ExpectedRightParenAfterLoop(self.pos.clone()))
             }
         } else {
-            Err(ParserError::ExpectedLeftParenAfterLoop())
+            Err(ParserError::ExpectedLeftParenAfterLoop(self.pos.clone()))
         }
     }
 
     fn or_expr(&mut self) -> ParserResult<Expr> {
         let mut expr = self.and_expr()?;
 
-        while self.consume(Or) {
+        while self.consume(Or)? {
             let right = self.and_expr()?;
             expr = LogicalExpr::new(expr, LogicalOperator::Or, right);
         }
@@ -494,7 +531,7 @@ impl<'a> Parser<'a> {
     fn and_expr(&mut self) -> ParserResult<Expr> {
         let mut expr = self.equality()?;
 
-        while self.consume(And) {
+        while self.consume(And)? {
             let right = self.equality()?;
             expr = LogicalExpr::new(expr, LogicalOperator::And, right);
         }
@@ -503,22 +540,22 @@ impl<'a> Parser<'a> {
     }
 
     fn if_stmt(&mut self) -> ParserResult<Stmt> {
-        if self.consume(LeftParen) {
+        if self.consume(LeftParen)? {
             let condition = self.expression()?;
-            if self.consume(RightParen) {
+            if self.consume(RightParen)? {
                 let then_branch = self.statement()?;
                 let mut else_branch = None;
 
-                if self.consume(Else) {
+                if self.consume(Else)? {
                     else_branch = Some(self.statement()?);
                 }
 
                 Ok(IfStmt::to_stmt(condition, then_branch, else_branch))
             } else {
-                Err(ParserError::ExpectedRightParenAfterIf())
+                Err(ParserError::ExpectedRightParenAfterIf(self.pos.clone()))
             }
         } else {
-            Err(ParserError::ExpectedLeftParenAfterIf())
+            Err(ParserError::ExpectedLeftParenAfterIf(self.pos.clone()))
         }
     }
 
@@ -533,31 +570,31 @@ impl<'a> Parser<'a> {
             stmts.push(self.declaration()?);
         }
 
-        if self.consume(RightBrace) {
+        if self.consume(RightBrace)? {
             return Ok(BlockStmt { stmts });
         }
 
-        Err(ParserError::ExpectedRightBraceAfterBlock())
+        Err(ParserError::ExpectedRightBraceAfterBlock(self.pos.clone()))
     }
 
     fn print_stmt(&mut self) -> ParserResult<Stmt> {
         let value = self.expression()?;
 
-        if self.consume(SemiColon) {
+        if self.consume(SemiColon)? {
             return Ok(PrintStmt::to_stmt(value));
         }
 
-        Err(ParserError::ExpectedSemicolonAfterExpr())
+        Err(ParserError::ExpectedSemicolonAfterExpr(self.pos.clone()))
     }
 
     fn expr_stmt(&mut self) -> ParserResult<Stmt> {
         let expr = self.expression()?;
 
-        if self.consume(SemiColon) {
+        if self.consume(SemiColon)? {
             return Ok(ExprStmt::to_stmt(expr));
         }
 
-        Err(ParserError::ExpectedSemicolonAfterExpr())
+        Err(ParserError::ExpectedSemicolonAfterExpr(self.pos.clone()))
     }
 
     // expression     → equality ;
@@ -574,17 +611,17 @@ impl<'a> Parser<'a> {
             let token_type = token.token_type.clone();
             let right_value = match token.token_type {
                 Equal => {
-                    self.tokens.next();
+                    self.next();
                     Some(self.assignment()?)
                 }
                 PlusEqual | MinusEqual | StarEqual | SlashEqual | PercentEqual => {
-                    self.tokens.next();
+                    self.next();
                     let val = self.assignment()?;
                     let op = BinaryOperator::from_token_type(&token_type).unwrap();
                     Some(BinaryExpr::new(expr.clone(), op, val))
                 }
                 PlusPlus => {
-                    self.tokens.next();
+                    self.next();
                     Some(BinaryExpr::new(
                         expr.clone(),
                         BinaryOperator::Plus,
@@ -592,7 +629,7 @@ impl<'a> Parser<'a> {
                     ))
                 }
                 MinusMinus => {
-                    self.tokens.next();
+                    self.next();
                     Some(BinaryExpr::new(
                         expr.clone(),
                         BinaryOperator::Minus,
@@ -614,13 +651,13 @@ impl<'a> Parser<'a> {
                                 args.push(right_val);
                                 return Ok(CallExpr::new(GetExpr::new(set, access.object), args));
                             } else {
-                                return Err(ParserError::InvalidAssignmentTarget());
+                                return Err(ParserError::InvalidAssignmentTarget(self.pos.clone()));
                             }
                         }
 
-                        return Err(ParserError::InvalidAssignmentTarget());
+                        return Err(ParserError::InvalidAssignmentTarget(self.pos.clone()));
                     }
-                    _ => return Err(ParserError::InvalidAssignmentTarget()),
+                    _ => return Err(ParserError::InvalidAssignmentTarget(self.pos.clone())),
                 };
             }
         }
@@ -628,115 +665,97 @@ impl<'a> Parser<'a> {
         return Ok(expr);
     }
 
-    fn match_equality(&mut self) -> Option<BinaryOperator> {
-        if let Some(Ok(t)) = self.tokens.peek() {
-            match t.token_type {
-                BangEqual => {
-                    self.tokens.next();
-                    return Some(BinaryOperator::BangEqual);
-                }
-                EqualEqual => {
-                    self.tokens.next();
-                    return Some(BinaryOperator::EqualEqual);
-                }
-                _ => return None,
+    fn match_equality(&mut self) -> ParserResult<Option<BinaryOperator>> {
+        match self.peek_token_type()? {
+            BangEqual => {
+                self.next();
+                Ok(Some(BinaryOperator::BangEqual))
             }
+            EqualEqual => {
+                self.next();
+                Ok(Some(BinaryOperator::EqualEqual))
+            }
+            _ => Ok(None),
         }
-
-        None
     }
 
-    fn match_comparison(&mut self) -> Option<BinaryOperator> {
-        if let Some(Ok(t)) = self.tokens.peek() {
-            match t.token_type {
-                Greater => {
-                    self.tokens.next();
-                    return Some(BinaryOperator::Greater);
-                }
-                GreaterEqual => {
-                    self.tokens.next();
-                    return Some(BinaryOperator::GreaterEqual);
-                }
-                Less => {
-                    self.tokens.next();
-                    return Some(BinaryOperator::Less);
-                }
-                LessEqual => {
-                    self.tokens.next();
-                    return Some(BinaryOperator::LessEqual);
-                }
-                _ => return None,
+    fn match_comparison(&mut self) -> ParserResult<Option<BinaryOperator>> {
+        match self.peek_token_type()? {
+            Greater => {
+                self.next();
+                Ok(Some(BinaryOperator::Greater))
             }
+            GreaterEqual => {
+                self.next();
+                Ok(Some(BinaryOperator::GreaterEqual))
+            }
+            Less => {
+                self.next();
+                Ok(Some(BinaryOperator::Less))
+            }
+            LessEqual => {
+                self.next();
+                Ok(Some(BinaryOperator::LessEqual))
+            }
+            _ => Ok(None),
         }
-
-        None
     }
 
-    fn match_addition(&mut self) -> Option<BinaryOperator> {
-        if let Some(Ok(t)) = self.tokens.peek() {
-            match t.token_type {
-                Plus => {
-                    if !self.match_next(Equal) {
-                        self.tokens.next();
-                        return Some(BinaryOperator::Plus);
-                    }
+    fn match_addition(&mut self) -> ParserResult<Option<BinaryOperator>> {
+        match self.peek_token_type()? {
+            Plus => {
+                if !self.match_next(Equal)? {
+                    self.next();
+                    return Ok(Some(BinaryOperator::Plus));
                 }
-                Minus => {
-                    self.tokens.next();
-                    return Some(BinaryOperator::Minus);
-                }
-                _ => return None,
+                Ok(None)
             }
+            Minus => {
+                self.next();
+                Ok(Some(BinaryOperator::Minus))
+            }
+            _ => Ok(None),
         }
-
-        None
     }
 
-    fn match_multiplication(&mut self) -> Option<BinaryOperator> {
-        if let Some(Ok(t)) = self.tokens.peek() {
-            match t.token_type {
-                Star => {
-                    self.tokens.next();
-                    return Some(BinaryOperator::Star);
-                }
-                Slash => {
-                    self.tokens.next();
-                    return Some(BinaryOperator::Slash);
-                }
-                Percent => {
-                    self.tokens.next();
-                    return Some(BinaryOperator::Percent);
-                }
-                _ => return None,
-            }
-        }
+    fn match_multiplication(&mut self) -> ParserResult<Option<BinaryOperator>> {
 
-        None
+        match self.peek_token_type()? {
+            Star => {
+                self.next();
+                Ok(Some(BinaryOperator::Star))
+            }
+            Slash => {
+                self.next();
+                Ok(Some(BinaryOperator::Slash))
+            }
+            Percent => {
+                self.next();
+                Ok(Some(BinaryOperator::Percent))
+            }
+            _ => Ok(None),
+        }
     }
 
-    fn match_unary(&mut self) -> Option<UnaryOperator> {
-        if let Some(Ok(t)) = self.tokens.peek() {
-            match t.token_type {
-                Minus => {
-                    self.tokens.next();
-                    return Some(UnaryOperator::Minus);
-                }
-                Bang => {
-                    self.tokens.next();
-                    return Some(UnaryOperator::Bang);
-                }
-                _ => return None,
+    fn match_unary(&mut self) -> ParserResult<Option<UnaryOperator>> {
+        match self.peek_token_type()? {
+            Minus => {
+                self.next();
+                Ok(Some(UnaryOperator::Minus))
             }
+            Bang => {
+                self.next();
+                Ok(Some(UnaryOperator::Bang))
+            }
+            _ => Ok(None),
         }
-
-        None
     }
 
     // equality       → comparison ( ( "!=" | "==" ) comparison )* ;
     fn equality(&mut self) -> ParserResult<Expr> {
         let mut expr = self.comparison()?;
 
-        while let Some(op) = self.match_equality() {
+        while let Some(op) = self.match_equality()? {
             let right = self.comparison()?;
             expr = BinaryExpr::new(expr, op, right);
         }
@@ -748,7 +767,7 @@ impl<'a> Parser<'a> {
     fn comparison(&mut self) -> ParserResult<Expr> {
         let mut expr = self.addition()?;
 
-        while let Some(op) = self.match_comparison() {
+        while let Some(op) = self.match_comparison()? {
             let right = self.addition()?;
             expr = BinaryExpr::new(expr, op, right);
         }
@@ -759,7 +778,7 @@ impl<'a> Parser<'a> {
     fn addition(&mut self) -> ParserResult<Expr> {
         let mut expr = self.multiplication()?;
 
-        while let Some(op) = self.match_addition() {
+        while let Some(op) = self.match_addition()? {
             let right = self.multiplication()?;
             expr = BinaryExpr::new(expr, op, right);
         }
@@ -770,7 +789,7 @@ impl<'a> Parser<'a> {
     fn multiplication(&mut self) -> ParserResult<Expr> {
         let mut expr = self.unary()?;
 
-        while let Some(op) = self.match_multiplication() {
+        while let Some(op) = self.match_multiplication()? {
             let right = self.unary()?;
             expr = BinaryExpr::new(expr, op, right);
         }
@@ -779,7 +798,7 @@ impl<'a> Parser<'a> {
     }
 
     fn unary(&mut self) -> ParserResult<Expr> {
-        if let Some(op) = self.match_unary() {
+        if let Some(op) = self.match_unary()? {
             let right = self.unary()?;
             return Ok(UnaryExpr::new(op, right));
         }
@@ -791,17 +810,17 @@ impl<'a> Parser<'a> {
         let mut expr = self.primary()?;
 
         loop {
-            if self.consume(LeftParen) {
+            if self.consume(LeftParen)? {
                 expr = self.finish_call(expr)?;
-            } else if self.consume(LeftBracket) {
+            } else if self.consume(LeftBracket)? {
                 // array access
                 let prop = self.identifiers.next_with_handle(Identifier::get());
                 expr = self.finish_array_access(GetExpr::new(prop, expr))?;
-            } else if self.consume(Dot) {
-                if let Some(prop) = self.consume_identifier() {
+            } else if self.consume(Dot)? {
+                if let Some(prop) = self.consume_identifier()? {
                     expr = GetExpr::new(prop, expr);
                 } else {
-                    return Err(ParserError::ExpectedPropertyNameAfterDot());
+                    return Err(ParserError::ExpectedPropertyNameAfterDot(self.pos.clone()));
                 }
             } else {
                 break;
@@ -814,17 +833,19 @@ impl<'a> Parser<'a> {
     fn finish_call(&mut self, expr: Expr) -> ParserResult<Expr> {
         let mut args = Vec::new();
 
-        if !self.match_next(RightParen) {
+        if !self.match_next(RightParen)? {
             loop {
                 args.push(self.expression()?);
-                if !self.consume(Comma) {
+                if !self.consume(Comma)? {
                     break;
                 }
             }
         }
 
-        if !self.consume(RightParen) {
-            return Err(ParserError::ExpectedRightParenAfterCallExpr());
+        if !self.consume(RightParen)? {
+            return Err(ParserError::ExpectedRightParenAfterCallExpr(
+                self.pos.clone(),
+            ));
         }
 
         Ok(CallExpr::new(expr, args))
@@ -833,26 +854,28 @@ impl<'a> Parser<'a> {
     fn finish_array_access(&mut self, expr: Expr) -> ParserResult<Expr> {
         let mut args = Vec::new();
 
-        if !self.match_next(RightParen) {
+        if !self.match_next(RightParen)? {
             loop {
                 args.push(self.expression()?);
-                if !self.consume(Comma) {
+                if !self.consume(Comma)? {
                     break;
                 }
             }
         }
 
-        if !self.consume(RightBracket) {
-            return Err(ParserError::ExpectedRightParenAfterCallExpr());
+        if !self.consume(RightBracket)? {
+            return Err(ParserError::ExpectedRightParenAfterCallExpr(
+                self.pos.clone(),
+            ));
         }
 
         Ok(CallExpr::new(expr, args))
     }
 
     fn primary(&mut self) -> ParserResult<Expr> {
-        let next = self.tokens.next().unwrap().unwrap().token_type.clone();
+        let next = self.next().unwrap().unwrap();
 
-        match next {
+        match next.token_type {
             Nil => {
                 return Ok(Expr::Literal(Literal::Nil));
             }
@@ -869,11 +892,11 @@ impl<'a> Parser<'a> {
                 return Ok(Expr::Literal(Literal::String(s.clone())));
             }
             LeftParen => {
-                let expr = self.expression().unwrap();
-                if self.consume(RightParen) {
+                let expr = self.expression()?;
+                if self.consume(RightParen)? {
                     return Ok(GroupingExpr::new(expr));
                 } else {
-                    return Err(ParserError::UnmatchingClosingParen());
+                    return Err(ParserError::UnmatchingClosingParen(self.pos.clone()));
                 }
             }
             Identifier(name) => return Ok(VarExpr::new(self.identifiers.next_with_name(&name))),
@@ -882,8 +905,8 @@ impl<'a> Parser<'a> {
                 identifier: self.identifiers.next_with_handle(Identifier::this()),
             })),
             Super => {
-                if self.consume(Dot) {
-                    if let Some(method) = self.consume_identifier() {
+                if self.consume(Dot)? {
+                    if let Some(method) = self.consume_identifier()? {
                         return Ok(SuperExpr::new(
                             self.identifiers.next_with_handle(Identifier::super_()),
                             method,
@@ -891,9 +914,9 @@ impl<'a> Parser<'a> {
                     }
                 }
 
-                Err(ParserError::ExpectedSuperclassMethodName())
+                Err(ParserError::ExpectedSuperclassMethodName(self.pos.clone()))
             }
-            _ => Err(ParserError::UnexpectedToken(next)),
+            _ => Err(ParserError::UnexpectedToken(self.pos.clone(), next.lexeme)),
         }
     }
 
@@ -903,7 +926,7 @@ impl<'a> Parser<'a> {
                 return;
             }
 
-            match self.tokens.next() {
+            match self.next() {
                 Some(Ok(t)) => match t.token_type {
                     Class | Fun | Var | For | If | While | Print | Return => return,
                     _ => continue,

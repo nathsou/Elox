@@ -88,7 +88,8 @@ impl Lox {
             }
             Err(err) => {
                 self.had_error = true;
-                (self.host.error)(format!("{}", err));
+                let pos = err.position();
+                (self.host.error)(format!("[line {}:{}] {}", pos.line, pos.col, err));
             }
         }
     }

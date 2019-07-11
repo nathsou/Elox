@@ -3,12 +3,12 @@ pub mod token;
 use scanner_result::{ScannerError, ScannerResult};
 use std::iter::Peekable;
 use std::str::Chars;
-use token::{token_type::TokenType, Token};
+use token::{token_type::TokenType, Token, Position};
 
 pub struct Scanner<'a> {
     source: Peekable<Chars<'a>>,
     current_lexeme: String,
-    line: usize,
+    pos: Position,
 }
 
 impl<'a> Scanner<'a> {
@@ -16,7 +16,7 @@ impl<'a> Scanner<'a> {
         Scanner {
             source,
             current_lexeme: "".into(),
-            line: 1,
+            pos: Position {line: 1, col: 1},
         }
     }
 
@@ -26,7 +26,9 @@ impl<'a> Scanner<'a> {
         if let Some(c) = next {
             self.current_lexeme.push(c);
             if c == '\n' {
-                self.line += 1;
+                self.pos.newline();
+            } else {
+                self.pos.next();
             }
         }
 
@@ -97,7 +99,7 @@ impl<'a> Scanner<'a> {
 
     fn skip_line(&mut self) {
         while self.source.peek() != None && self.source.peek() != Some(&'\n') {
-            self.source.next();
+            self.advance();
         }
     }
 
@@ -105,11 +107,9 @@ impl<'a> Scanner<'a> {
         while let Some(&c) = self.source.peek() {
             if !c.is_whitespace() {
                 return;
-            } else if c == '\n' {
-                self.line += 1;
             }
 
-            self.source.next();
+            self.advance();
         }
     }
 
@@ -147,21 +147,20 @@ impl<'a> Scanner<'a> {
                     Some(&'=') => {
                         self.advance();
                         self.token(SlashEqual)
-                        },
+                    }
                     _ => self.token(Slash),
                 })
             }
             Some('"') => self.scan_string(),
             Some(c) => {
                 if c == '\n' {
-                    self.line += 1;
                     self.scan_token()
                 } else if c.is_digit(10) {
                     self.scan_number()
                 } else if c.is_alphabetic() || c == '_' || c == '#' {
                     self.scan_identifier()
                 } else {
-                    Err(ScannerError::UnexpectedCharacter(c, self.line))
+                    Err(ScannerError::UnexpectedCharacter(self.pos.clone(), c))
                 }
             }
             _ => Ok(self.token(EOF)),
@@ -175,14 +174,12 @@ impl<'a> Scanner<'a> {
                 return Ok(self.token(TokenType::String(
                     self.current_lexeme[1..self.current_lexeme.len() - 1].to_owned(),
                 )));
-            } else if c == '\n' {
-                self.line += 1;
             } else {
                 self.advance();
             }
         }
 
-        Err(ScannerError::UnterminatedString(self.line))
+        Err(ScannerError::UnterminatedString(self.pos.clone()))
     }
 
     fn scan_number(&mut self) -> ScannerResult<Token> {
@@ -222,7 +219,7 @@ impl<'a> Scanner<'a> {
     }
 
     fn token(&mut self, token_type: TokenType) -> Token {
-        Token::new(token_type, self.current_lexeme.clone(), self.line)
+        Token::new(token_type, self.current_lexeme.clone(), self.pos.line, self.pos.col)
     }
 
     fn identifier(&self) -> TokenType {

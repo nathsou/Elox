@@ -1,0 +1,23 @@
+
+fun fibonacci(n) {
+  if (n <= 1) return n;
+  return fibonacci(n - 2) + fibonacci(n - 1);
+}
+
+fun time(fn) {
+    var t1 = clock();
+    fn();
+    return (clock() - t1) * 1000; //ms
+}
+
+fun bench() {
+  for (var i = 0; i < 25; i++) {
+    print fibonacci(i);
+  }
+}
+
+fun floor(x) {
+  return x - x % 1;
+}
+
+print "took " + floor(time(bench)) + "ms";

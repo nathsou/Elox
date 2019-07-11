@@ -134,6 +134,6 @@ fun sum(list) {
   return list.reduce(fun(prev, curr) { return prev + curr; }, 0);
 }
 
-var nums = range(1, 100, 1).map(fun(n) { return n * n; }); 
+var nums = range(1, 10, 1).map(fun(n) { return n * n; }); 
 
 print nums.join(" + ") + " = " + sum(nums);

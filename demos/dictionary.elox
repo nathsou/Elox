@@ -8,10 +8,10 @@ fun indexOf(array, val) {
     return nil;
 }
   
-class HashMap {
+class Dictionary {
     init() {
-      this.keys = Array();
-      this.values = Array();
+        this.keys = Array();
+        this.values = Array();
     }
   
     #set(key, val) {
@@ -32,29 +32,29 @@ class HashMap {
     }
 
     size() {
-      return this.keys.length();
+        return this.keys.length();
     }
   
     #str() {
-      var entries = "[";
-      var size = this.size();
-      for (var i = 0; i < size; i++) {
-        entries += this.keys[i] + "->" + this.values[i];
-        if (i != size - 1) entries += ", ";
-      }
-      
-      return entries + "]";
+        var entries = "[";
+        var size = this.size();
+        for (var i = 0; i < size; i++) {
+          entries += this.keys[i] + "->" + this.values[i];
+          if (i != size - 1) entries += ", ";
+        }
+        
+        return entries + "]";
     }
 }
   
-var map = HashMap();
+var friends = Dictionary();
   
-map["alice"] = 20;
-map["bob"] = 18;
-map["charlie"] = "hoy!";
-map["dan"] = "hey!";
-map["bob"] = true;
+friends["alice"] = 20;
+friends["bob"] = 18;
+friends["charlie"] = "hoy!";
+friends["dan"] = "hey!";
+friends["bob"] = true;
 
-print map;
+print friends;
 
   

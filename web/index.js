@@ -1,6 +1,12 @@
 import {
   run
 } from '../pkg/elox';
+import CodeFlask from 'codeflask';
+import dictionary_demo from '../demos/dictionary.elox';
+import fib_demo from '../demos/fib.elox';
+import inheritance_demo from '../demos/inheritance.elox';
+import primes_demo from '../demos/primes.elox';
+import linked_list_demo from '../demos/linked_list.elox';
 
 let messages = '';
 
@@ -22,80 +28,43 @@ export function clock() {
   return Date.now() / 1000;
 }
 
-import CodeFlask from 'codeflask';
-
 const editor = new CodeFlask('#editor', {
   language: 'js',
   lineNumbers: true
 });
 
+const demos = {
+  primes: primes_demo,
+  fibonacci: fib_demo,
+  dictionary: dictionary_demo,
+  inheritance: inheritance_demo,
+  linked_list: linked_list_demo
+};
 
-editor.updateCode(`
-fun indexOf(array, val) {
-  var len = array.length();
-  for (var i = 0; i < len; i++) {
-    if (array[i] == val) return i;
-  }
-
-  return nil;
+async function loadDemo(uri) {
+  const source = await (await fetch(uri)).text();
+  editor.updateCode(source);
 }
 
-class HashMap {
-  init() {
-    this.keys = Array();
-    this.values = Array();
-  }
+loadDemo(Object.values(demos)[0]);
 
-  #set(key, val) {
-      var idx = indexOf(this.keys, key);
-      if (idx == nil) {
-        this.keys.push(key);
-        this.values.push(val);
-      } else {
-        this.keys[idx] = key;
-        this.values[idx] = val;
-      }
-  }
+const select = document.querySelector('#demo_selector');
 
-  #get(key) {
-      var idx = indexOf(this.keys, key);
-      if (idx == nil) return nil;
-      return this.values[idx];
-  }
-
-  size() {
-    return this.keys.length();
-  }
-
-  #str() {
-    var entries = "[";
-    var size = this.size();
-    for (var i = 0; i < size; i++) {
-      entries += this.keys[i] + "->" + this.values[i];
-      if (i != size - 1) entries += ", ";
-    }
-    
-    return entries + "]";
-  }
+for (const demo of Object.keys(demos)) {
+  const option = document.createElement('option');
+  option.textContent = demo;
+  option.value = demo;
+  select.appendChild(option);
 }
 
-var map = HashMap();
-
-map["alice"] = 20;
-map["bob"] = 18;
-map["charlie"] = "hoy!";
-map["dan"] = "hey!";
-map["bob"] = true;
-
-print map;
-
-
-
-  `);
+select.addEventListener('change', () => {
+  loadDemo(demos[select.value]);
+});
 
 const run_btn = document.querySelector('#run');
 
 run_btn.addEventListener('click', () => {
   messages = '';
+  result.updateCode(messages);
   run(editor.getCode());
 });

@@ -3,18 +3,35 @@ use std::fmt;
 use token_type::TokenType;
 
 #[derive(Debug, Clone)]
+pub struct Position {
+    pub line: usize,
+    pub col: usize,
+}
+
+impl Position {
+    pub fn newline(&mut self) {
+        self.line += 1;
+        self.col = 1;
+    }
+
+    pub fn next(&mut self) {
+        self.col += 1;
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,
-    pub line: usize,
+    pub pos: Position,
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, lexeme: String, line: usize) -> Self {
+    pub fn new(token_type: TokenType, lexeme: String, line: usize, col: usize) -> Self {
         Token {
             token_type,
             lexeme,
-            line,
+            pos: Position { line, col },
         }
     }
 }
