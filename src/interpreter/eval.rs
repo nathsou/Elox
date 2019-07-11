@@ -3,23 +3,23 @@ use super::eval_result::{EvalError, EvalResult};
 use super::lox_function::LoxFunction;
 use super::value::{CallableValue, Value};
 use crate::interpreter::Interpreter;
-use crate::parser::expressions::{BinaryOperator, Expr, Literal, LogicalOperator, UnaryOperator};
+use crate::parser::expressions::{BinaryOperator, BinaryOperatorCtx, ExprCtx, ExprWithCtxt, Expr, Literal, LogicalOperator, UnaryOperator};
 use crate::parser::Identifier;
 use std::ops::Deref;
 use std::rc::Rc;
 
 pub trait Eval {
-    fn eval(&self, env: &Environment, expr: &Expr) -> EvalResult<Value>;
+    fn eval(&self, env: &Environment, expr: &ExprCtx) -> EvalResult<Value>;
 }
 
 impl Eval for Interpreter {
-    fn eval(&self, env: &Environment, expr: &Expr) -> EvalResult<Value> {
-        match expr {
+    fn eval(&self, env: &Environment, expr_ctx: &ExprCtx) -> EvalResult<Value> {
+        match &expr_ctx.expr {
             Expr::Literal(literal) => match literal {
-                Literal::Number(n) => Ok(Value::Number(*n)),
+                Literal::Number(n) => Ok(Value::Number(n.clone())),
                 Literal::String(s) => Ok(Value::String(s.clone())),
                 Literal::Nil => Ok(Value::Nil),
-                Literal::Boolean(b) => Ok(Value::Boolean(*b)),
+                Literal::Boolean(b) => Ok(Value::Boolean(b.clone())),
             },
             Expr::Grouping(sub_expr) => self.eval(env, &sub_expr.deref().expression),
             Expr::Unary(sub_expr) => {
@@ -31,6 +31,7 @@ impl Eval for Interpreter {
                             Ok(Value::Number(-nb))
                         } else {
                             Err(EvalError::UnexpectedUnaryOperatorOperand(
+                                expr.right.pos(),
                                 UnaryOperator::Minus,
                                 val,
                             ))
@@ -44,23 +45,25 @@ impl Eval for Interpreter {
                 let a = self.eval(env, &expr.left)?;
                 let b = self.eval(env, &expr.right)?;
 
-                match expr.operator {
-                    BinaryOperator::Minus => arithmetic_op(&a, &b, |a, b| Value::Number(a - b)),
+                let op_ctx = &expr.operator;
+
+                match op_ctx.op {
+                    BinaryOperator::Minus => arithmetic_op(op_ctx, &a, &b, |a, b| Value::Number(a - b)),
                     BinaryOperator::Plus => match (&a, &b) {
                         (Value::Number(a), Value::Number(b)) => Ok(Value::Number(a + b)),
                         (_, _) => Ok(Value::String(format!("{}{}", a, b))),
                     },
-                    BinaryOperator::Slash => arithmetic_op(&a, &b, |a, b| Value::Number(a / b)),
-                    BinaryOperator::Star => arithmetic_op(&a, &b, |a, b| Value::Number(a * b)),
-                    BinaryOperator::Percent => arithmetic_op(&a, &b, |a, b| Value::Number(a % b)),
+                    BinaryOperator::Slash => arithmetic_op(op_ctx, &a, &b, |a, b| Value::Number(a / b)),
+                    BinaryOperator::Star => arithmetic_op(op_ctx, &a, &b, |a, b| Value::Number(a * b)),
+                    BinaryOperator::Percent => arithmetic_op(op_ctx, &a, &b, |a, b| Value::Number(a % b)),
 
-                    BinaryOperator::Greater => arithmetic_op(&a, &b, |a, b| Value::Boolean(a > b)),
+                    BinaryOperator::Greater => arithmetic_op(op_ctx, &a, &b, |a, b| Value::Boolean(a > b)),
                     BinaryOperator::GreaterEqual => {
-                        arithmetic_op(&a, &b, |a, b| Value::Boolean(a >= b))
+                        arithmetic_op(op_ctx, &a, &b, |a, b| Value::Boolean(a >= b))
                     }
-                    BinaryOperator::Less => arithmetic_op(&a, &b, |a, b| Value::Boolean(a < b)),
+                    BinaryOperator::Less => arithmetic_op(op_ctx, &a, &b, |a, b| Value::Boolean(a < b)),
                     BinaryOperator::LessEqual => {
-                        arithmetic_op(&a, &b, |a, b| Value::Boolean(a <= b))
+                        arithmetic_op(op_ctx, &a, &b, |a, b| Value::Boolean(a <= b))
                     }
                     BinaryOperator::EqualEqual => Ok(Value::Boolean(a == b)),
                     BinaryOperator::BangEqual => Ok(Value::Boolean(a != b)),
@@ -72,7 +75,7 @@ impl Eval for Interpreter {
                     return Ok(value);
                 }
 
-                Err(EvalError::UndefinedVariable(self.name(var_expr.identifier.name)))
+                Err(EvalError::UndefinedVariable(expr_ctx.pos(), self.name(var_expr.identifier.name)))
             }
             Expr::Assign(expr) => {
                 let assign_expr = expr.deref();
@@ -82,9 +85,7 @@ impl Eval for Interpreter {
                     return Ok(value);
                 }
 
-                Err(EvalError::UndefinedVariable(
-                    self.name(assign_expr.identifier.name),
-                ))
+                Err(EvalError::UndefinedVariable(expr_ctx.pos(), self.name(assign_expr.identifier.name)))
             }
             Expr::Logical(expr) => {
                 let left = self.eval(env, &expr.left)?;
@@ -117,16 +118,22 @@ impl Eval for Interpreter {
                     Value::Callable(callable_value) => {
                         let callable = callable_value.into_callable();
                         if callable.arity() != args.len() {
-                            return Err(EvalError::WrongNumberOfArgs(callable.arity(), args.len(), callable.name(&self.identifier_names)));
+                            let name = callable.name(&self.names);
+                            return Err(EvalError::WrongNumberOfArgs(expr_ctx.pos(), callable.arity(), args.len(), name));
                         }
 
                         return Ok(callable.call(&self, env, args)?);
                     }
-                    _ => return Err(EvalError::ValueNotCallable(callee.type_())),
+                    _ => return Err(EvalError::ValueNotCallable(expr_ctx.pos(), callee.type_())),
                 }
             }
             Expr::Func(func_expr) => {
-                let func = LoxFunction::new(func_expr.clone(), env.clone(), false);
+                let func = LoxFunction::new(
+                    ExprWithCtxt {
+                        expr: func_expr.clone(),
+                        pos: expr_ctx.pos(),
+                }, env.clone(), false);
+
                 let f = Value::Callable(CallableValue::Function(Rc::new(func)));
 
                 // if not anonymous
@@ -143,11 +150,12 @@ impl Eval for Interpreter {
                     if let Some(prop_val) = instance.get(get_expr.property.name) {
                         return Ok(prop_val);
                     } else {
-                        return Err(EvalError::UndefinedProperty(self.name(get_expr.property.name)));
+                        return Err(EvalError::UndefinedProperty(expr_ctx.pos(), self.name(get_expr.property.name)));
                     }
                 }
 
                 Err(EvalError::OnlyInstancesHaveProperties(
+                    expr_ctx.pos(),
                     self.eval(env, &get_expr.object).unwrap().type_()))
             }
             Expr::Set(set_expr) => {
@@ -159,7 +167,7 @@ impl Eval for Interpreter {
                     return Ok(val);
                 }
 
-                Err(EvalError::OnlyInstancesHaveProperties(self.eval(env, &set_expr.object).unwrap().type_()))
+                Err(EvalError::OnlyInstancesHaveProperties(expr_ctx.pos(), self.eval(env, &set_expr.object).unwrap().type_()))
             }
             Expr::This(this_expr) => {
                 if let Some(this) = self.lookup_variable(env, &this_expr.identifier) {
@@ -183,7 +191,8 @@ impl Eval for Interpreter {
                                     ))));
                                 } else {
                                     return Err(EvalError::UndefinedProperty(
-                                        self.name(super_expr.method.name),
+                                        expr_ctx.pos(),
+                                        self.name(super_expr.method.name)
                                     ));
                                 }
                             }
@@ -198,12 +207,12 @@ impl Eval for Interpreter {
 }
 
 #[inline]
-fn arithmetic_op<F>(a: &Value, b: &Value, op: F) -> EvalResult<Value>
+fn arithmetic_op<F>(op_ctx: &BinaryOperatorCtx, a: &Value, b: &Value, operation: F) -> EvalResult<Value>
 where
     F: Fn(&f64, &f64) -> Value,
 {
     match (a, b) {
-        (Value::Number(a), Value::Number(b)) => Ok(op(a, b)),
-        _ => Err(EvalError::UnexpectedBinaryOperatorOperands()),
+        (Value::Number(a), Value::Number(b)) => Ok(operation(a, b)),
+        _ => Err(EvalError::UnexpectedBinaryOperatorOperands(op_ctx.pos.clone(), op_ctx.op.clone(), a.type_(), b.type_())),
     }
 }

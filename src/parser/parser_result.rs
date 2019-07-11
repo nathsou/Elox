@@ -1,6 +1,6 @@
 use super::IdentifierHandle;
 use super::Position;
-use crate::scanner::scanner_result::ScannerError;
+use crate::scanner::scanner_result::{ScannerError, ErrorPosition};
 use std::fmt;
 
 pub type ParserResult<T> = Result<T, ParserError>;
@@ -90,8 +90,8 @@ impl fmt::Display for ParserError {
     }
 }
 
-impl ParserError {
-    pub fn position(&self) -> &Position {
+impl ErrorPosition for ParserError {
+    fn position(&self) -> &Position {
         use ParserError::*;
 
         match self {

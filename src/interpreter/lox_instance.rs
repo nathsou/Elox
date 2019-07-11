@@ -9,6 +9,7 @@ use fnv::FnvHashMap;
 use std::cell::RefCell;
 use std::rc::Rc;
 use super::eval_result::EvalResult;
+use crate::scanner::token::Position;
 
 pub type NativesMap = FnvHashMap<usize, NativeValue>;
 
@@ -61,6 +62,14 @@ impl LoxInstance {
 
     pub fn class_name(&self) -> IdentifierHandle {
         self.instance.borrow().mold.identifier
+    }
+
+    pub fn method_pos(&self, method_name: IdentifierHandle) -> Option<Position> {
+        if let Some(method) = self.find_method(method_name) {
+            return method.pos();
+        }
+        
+        None
     }
 
     pub fn find_method(&self, name: IdentifierHandle) -> Option<Rc<LoxFunction>> {

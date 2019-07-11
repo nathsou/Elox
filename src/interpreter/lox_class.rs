@@ -1,5 +1,5 @@
 use super::eval_result::EvalResult;
-use super::lox_callable::LoxCallable;
+use super::lox_callable::{LoxCallable};
 
 use super::lox_function::LoxFunction;
 use super::lox_instance::LoxInstance;
@@ -99,7 +99,7 @@ impl LoxCallable for LoxClass {
     }
 
     fn name(&self, names: &Rc<IdentifierNames>) -> String {
-        format!("{}.init",names[self.mold.identifier].clone())
+        format!("{}.init", names[self.mold.identifier].clone())
     }
 }
 

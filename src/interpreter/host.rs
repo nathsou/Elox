@@ -21,7 +21,7 @@ impl Default for Host {
                 None
             }),
             error: Box::new(|err| {
-                println!("Error: {}", err);
+                    println!("Error: {}", err);
             }),
         }
     }

@@ -122,6 +122,7 @@ impl Value {
                 match res {
                     Ok(Value::String(s)) => Ok(s),
                     Ok(val) => Err(EvalError::ToStringMethodMustReturnAString(
+                        inst.method_pos(Identifier::str_()).unwrap(), // we already know it exists
                         interpreter.name(inst.class_name()),
                         val.type_()
                     )),

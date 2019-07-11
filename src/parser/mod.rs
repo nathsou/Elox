@@ -59,7 +59,7 @@ pub type IdentifierNames = Vec<std::string::String>;
 #[derive(Debug)]
 pub struct IdentifierHandlesGenerator {
     handles: FnvHashMap<std::string::String, IdentifierHandle>,
-    names: Vec<std::string::String>,
+    names: IdentifierNames,
     next_id_handle: IdentifierHandle,
     next_use_handle: IdentifierUseHandle,
 }
@@ -110,14 +110,14 @@ impl IdentifierHandlesGenerator {
         let curr = self.next_id_handle;
         self.next_id_handle += 1;
 
-        return curr;
+        curr
     }
 
     pub fn next_use_handle(&mut self) -> IdentifierUseHandle {
         let curr = self.next_use_handle;
         self.next_use_handle += 1;
 
-        return curr;
+        curr
     }
 
     pub fn by_name(&mut self, name: &str) -> IdentifierHandle {
@@ -128,9 +128,7 @@ impl IdentifierHandlesGenerator {
         let handle = self.next_id_handle();
         self.insert(name.into(), handle);
 
-        // println!("{} -> {}", name, handle);
-
-        return handle;
+        handle
     }
 }
 
@@ -167,7 +165,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn identifiers(&self) -> IdentifierNames {
+    pub fn names(&self) -> IdentifierNames {
         self.identifiers.names()
     }
 
@@ -209,7 +207,6 @@ impl<'a> Parser<'a> {
     }
 
     fn consume(&mut self, token_type: TokenType) -> ParserResult<bool> {
-
         if self.peek_token_type()? == token_type {
             self.next();
             return Ok(true);
@@ -225,21 +222,21 @@ impl<'a> Parser<'a> {
     fn declaration(&mut self) -> ParserResult<Stmt> {
         let mut res: Option<ParserResult<Stmt>> = None;
 
-            match self.peek_token_type()? {
-                Fun => {
-                    self.next();
-                    let f = self.function_declaration()?;
-                    res = Some(Ok(ExprStmt::to_stmt(f)));
-                }
-                Var => {
-                    self.next();
-                    res = Some(self.var_declaration());
-                }
-                Class => {
-                    self.next();
-                    res = Some(self.class_declaration());
-                }
-                _ => {}
+        match self.peek_token_type()? {
+            Fun => {
+                self.next();
+                let f = self.function_declaration()?;
+                res = Some(Ok(ExprStmt::to_stmt(f)));
+            }
+            Var => {
+                self.next();
+                res = Some(self.var_declaration());
+            }
+            Class => {
+                self.next();
+                res = Some(self.class_declaration());
+            }
+            _ => {}
         }
 
         if let Some(res) = res {
@@ -274,9 +271,13 @@ impl<'a> Parser<'a> {
 
                 while !self.match_next(RightBrace)? {
                     let func = self.function_declaration()?;
-                    match func {
+                    let pos = func.pos();
+                    match func.expr {
                         Expr::Func(f) => {
-                            methods.push(f);
+                            methods.push(ExprWithCtxt {
+                                expr: f,
+                                pos,
+                            });
                         }
                         _ => {
                             return Err(ParserError::ExpectedMethodDeclarationInClass(
@@ -293,7 +294,7 @@ impl<'a> Parser<'a> {
                     ));
                 }
 
-                return Ok(ClassDeclStmt::to_stmt(name, superclass, methods));
+                return Ok(ClassDeclStmt::to_stmt(self.pos.clone(), name, superclass, methods));
             } else {
                 return Err(ParserError::ExpectedLeftBraceBeforeClassBody(
                     self.pos.clone(),
@@ -304,8 +305,9 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn function_declaration(&mut self) -> ParserResult<Expr> {
+    fn function_declaration(&mut self) -> ParserResult<ExprCtx> {
         let name = self.consume_identifier()?;
+        let pos = self.pos.clone();
 
         if self.consume(LeftParen)? {
             let mut params = Vec::new();
@@ -338,9 +340,11 @@ impl<'a> Parser<'a> {
 
             let body = ((self.block()?) as BlockStmt).stmts;
 
-            return Ok(FuncExpr::new(name, params, body));
+            return Ok(FuncExpr::new(pos.clone(), name, params, body));
         } else {
-            Err(ParserError::ExpectedRightParenAfterCallExpr(self.pos.clone()))
+            Err(ParserError::ExpectedRightParenAfterCallExpr(
+                self.pos.clone(),
+            ))
         }
     }
 
@@ -367,7 +371,7 @@ impl<'a> Parser<'a> {
     fn var_declaration(&mut self) -> ParserResult<Stmt> {
         if let Some(identifier) = self.match_identifier()? {
             self.next();
-            let mut initializer: Option<Expr> = None;
+            let mut initializer: Option<ExprCtx> = None;
 
             if self.consume(Equal)? {
                 initializer = Some(self.expression()?);
@@ -382,7 +386,7 @@ impl<'a> Parser<'a> {
             if let Some(Ok(tok)) = self.tokens.peek() {
                 return Err(ParserError::ExpectedVarName(
                     self.pos.clone(),
-                    tok.lexeme.clone()
+                    tok.lexeme.clone(),
                 ));
             } else {
                 return Err(ParserError::ExpectedStatement(self.pos.clone()));
@@ -426,7 +430,7 @@ impl<'a> Parser<'a> {
     }
 
     fn return_stmt(&mut self) -> ParserResult<Stmt> {
-        let mut value: Option<Expr> = None;
+        let mut value: Option<ExprCtx> = None;
 
         if !self.match_next(SemiColon)? {
             value = Some(self.expression()?);
@@ -486,7 +490,7 @@ impl<'a> Parser<'a> {
                 if let Some(cond) = condition {
                     cond
                 } else {
-                    Expr::Literal(Literal::Boolean(true))
+                    Literal::new(self.pos.clone(), Literal::Boolean(true))
                 },
                 body,
             );
@@ -517,26 +521,26 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn or_expr(&mut self) -> ParserResult<Expr> {
-        let mut expr = self.and_expr()?;
+    fn or_expr(&mut self) -> ParserResult<ExprCtx> {
+        let mut expr_ctx = self.and_expr()?;
 
         while self.consume(Or)? {
             let right = self.and_expr()?;
-            expr = LogicalExpr::new(expr, LogicalOperator::Or, right);
+            expr_ctx = LogicalExpr::new(self.pos.clone(), expr_ctx, LogicalOperator::Or, right);
         }
 
-        Ok(expr)
+        Ok(expr_ctx)
     }
 
-    fn and_expr(&mut self) -> ParserResult<Expr> {
-        let mut expr = self.equality()?;
+    fn and_expr(&mut self) -> ParserResult<ExprCtx> {
+        let mut expr_ctx = self.equality()?;
 
         while self.consume(And)? {
             let right = self.equality()?;
-            expr = LogicalExpr::new(expr, LogicalOperator::And, right);
+            expr_ctx = LogicalExpr::new(self.pos.clone(), expr_ctx, LogicalOperator::And, right);
         }
 
-        Ok(expr)
+        Ok(expr_ctx)
     }
 
     fn if_stmt(&mut self) -> ParserResult<Stmt> {
@@ -588,22 +592,22 @@ impl<'a> Parser<'a> {
     }
 
     fn expr_stmt(&mut self) -> ParserResult<Stmt> {
-        let expr = self.expression()?;
+        let expr_ctx = self.expression()?;
 
         if self.consume(SemiColon)? {
-            return Ok(ExprStmt::to_stmt(expr));
+            return Ok(ExprStmt::to_stmt(expr_ctx));
         }
 
         Err(ParserError::ExpectedSemicolonAfterExpr(self.pos.clone()))
     }
 
     // expression     → equality ;
-    fn expression(&mut self) -> ParserResult<Expr> {
+    fn expression(&mut self) -> ParserResult<ExprCtx> {
         self.assignment()
     }
 
-    fn assignment(&mut self) -> ParserResult<Expr> {
-        let expr = self.or_expr()?;
+    fn assignment(&mut self) -> ParserResult<ExprCtx> {
+        let expr_ctx = self.or_expr()?;
 
         let next_token = self.tokens.peek();
 
@@ -618,38 +622,42 @@ impl<'a> Parser<'a> {
                     self.next();
                     let val = self.assignment()?;
                     let op = BinaryOperator::from_token_type(&token_type).unwrap();
-                    Some(BinaryExpr::new(expr.clone(), op, val))
+                    Some(BinaryExpr::new(self.pos.clone(), expr_ctx.clone(), op, val))
                 }
                 PlusPlus => {
                     self.next();
                     Some(BinaryExpr::new(
-                        expr.clone(),
+                        self.pos.clone(),
+                        expr_ctx.clone(),
                         BinaryOperator::Plus,
-                        Expr::Literal(Literal::Number(1f64)),
+                        Literal::new(self.pos.clone(), Literal::Number(1f64)),
                     ))
                 }
                 MinusMinus => {
                     self.next();
                     Some(BinaryExpr::new(
-                        expr.clone(),
+                        self.pos.clone(),
+                        expr_ctx.clone(),
                         BinaryOperator::Minus,
-                        Expr::Literal(Literal::Number(1f64)),
+                        Literal::new(self.pos.clone(), Literal::Number(1f64)),
                     ))
                 }
                 _ => None,
             };
 
             if let Some(right_val) = right_value {
-                match expr {
-                    Expr::Var(v) => return Ok(AssignExpr::new(v.identifier, right_val)),
-                    Expr::Get(g) => return Ok(SetExpr::new(g.property, g.object, right_val)),
-                    Expr::Call(expr) => {
-                        if let Expr::Get(access) = expr.callee {
+                match expr_ctx.expr {
+                    Expr::Var(v) => return Ok(AssignExpr::new(self.pos.clone(), v.identifier, right_val)),
+                    Expr::Get(g) => return Ok(SetExpr::new(self.pos.clone(), g.property, g.object, right_val)),
+                    Expr::Call(expr_ctx) => {
+                        if let Expr::Get(access) = expr_ctx.callee.expr {
                             if access.property.name == Identifier::get() {
-                                let set = self.identifiers.next_with_handle(Identifier::set());
-                                let mut args = expr.args;
+                                let set = self
+                                    .identifiers
+                                    .next_with_handle(Identifier::set());
+                                let mut args = expr_ctx.args;
                                 args.push(right_val);
-                                return Ok(CallExpr::new(GetExpr::new(set, access.object), args));
+                                return Ok(CallExpr::new(self.pos.clone(), GetExpr::new(self.pos.clone(), set, access.object), args));
                             } else {
                                 return Err(ParserError::InvalidAssignmentTarget(self.pos.clone()));
                             }
@@ -662,7 +670,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        return Ok(expr);
+        return Ok(expr_ctx);
     }
 
     fn match_equality(&mut self) -> ParserResult<Option<BinaryOperator>> {
@@ -719,7 +727,6 @@ impl<'a> Parser<'a> {
     }
 
     fn match_multiplication(&mut self) -> ParserResult<Option<BinaryOperator>> {
-
         match self.peek_token_type()? {
             Star => {
                 self.next();
@@ -752,73 +759,75 @@ impl<'a> Parser<'a> {
     }
 
     // equality       → comparison ( ( "!=" | "==" ) comparison )* ;
-    fn equality(&mut self) -> ParserResult<Expr> {
-        let mut expr = self.comparison()?;
+    fn equality(&mut self) -> ParserResult<ExprCtx> {
+        let mut expr_ctx = self.comparison()?;
 
         while let Some(op) = self.match_equality()? {
             let right = self.comparison()?;
-            expr = BinaryExpr::new(expr, op, right);
+            expr_ctx = BinaryExpr::new(self.pos.clone(), expr_ctx, op, right);
         }
 
-        Ok(expr)
+        Ok(expr_ctx)
     }
 
     // comparison → addition ( ( ">" | ">=" | "<" | "<=" ) addition )* ;
-    fn comparison(&mut self) -> ParserResult<Expr> {
-        let mut expr = self.addition()?;
+    fn comparison(&mut self) -> ParserResult<ExprCtx> {
+        let mut expr_ctx = self.addition()?;
 
         while let Some(op) = self.match_comparison()? {
             let right = self.addition()?;
-            expr = BinaryExpr::new(expr, op, right);
+            expr_ctx = BinaryExpr::new(self.pos.clone(), expr_ctx, op, right);
         }
 
-        Ok(expr)
+        Ok(expr_ctx)
     }
 
-    fn addition(&mut self) -> ParserResult<Expr> {
-        let mut expr = self.multiplication()?;
+    fn addition(&mut self) -> ParserResult<ExprCtx> {
+        let mut expr_ctx = self.multiplication()?;
 
         while let Some(op) = self.match_addition()? {
             let right = self.multiplication()?;
-            expr = BinaryExpr::new(expr, op, right);
+            expr_ctx = BinaryExpr::new(self.pos.clone(), expr_ctx, op, right);
         }
 
-        Ok(expr)
+        Ok(expr_ctx)
     }
 
-    fn multiplication(&mut self) -> ParserResult<Expr> {
-        let mut expr = self.unary()?;
+    fn multiplication(&mut self) -> ParserResult<ExprCtx> {
+        let mut expr_ctx = self.unary()?;
 
         while let Some(op) = self.match_multiplication()? {
             let right = self.unary()?;
-            expr = BinaryExpr::new(expr, op, right);
+            expr_ctx = BinaryExpr::new(self.pos.clone(), expr_ctx, op, right);
         }
 
-        Ok(expr)
+        Ok(expr_ctx)
     }
 
-    fn unary(&mut self) -> ParserResult<Expr> {
+    fn unary(&mut self) -> ParserResult<ExprCtx> {
         if let Some(op) = self.match_unary()? {
             let right = self.unary()?;
-            return Ok(UnaryExpr::new(op, right));
+            return Ok(UnaryExpr::new(self.pos.clone(), op, right));
         }
 
         self.call()
     }
 
-    fn call(&mut self) -> ParserResult<Expr> {
-        let mut expr = self.primary()?;
+    fn call(&mut self) -> ParserResult<ExprCtx> {
+        let mut expr_ctx = self.primary()?;
 
         loop {
             if self.consume(LeftParen)? {
-                expr = self.finish_call(expr)?;
+                expr_ctx = self.finish_call(expr_ctx)?;
             } else if self.consume(LeftBracket)? {
                 // array access
-                let prop = self.identifiers.next_with_handle(Identifier::get());
-                expr = self.finish_array_access(GetExpr::new(prop, expr))?;
+                let prop = self
+                    .identifiers
+                    .next_with_handle(Identifier::get());
+                expr_ctx = self.finish_array_access(GetExpr::new(self.pos.clone(), prop, expr_ctx))?;
             } else if self.consume(Dot)? {
                 if let Some(prop) = self.consume_identifier()? {
-                    expr = GetExpr::new(prop, expr);
+                    expr_ctx = GetExpr::new(self.pos.clone(), prop, expr_ctx);
                 } else {
                     return Err(ParserError::ExpectedPropertyNameAfterDot(self.pos.clone()));
                 }
@@ -827,10 +836,10 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Ok(expr)
+        Ok(expr_ctx)
     }
 
-    fn finish_call(&mut self, expr: Expr) -> ParserResult<Expr> {
+    fn finish_call(&mut self, expr_ctx: ExprCtx) -> ParserResult<ExprCtx> {
         let mut args = Vec::new();
 
         if !self.match_next(RightParen)? {
@@ -848,10 +857,10 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        Ok(CallExpr::new(expr, args))
+        Ok(CallExpr::new(self.pos.clone(), expr_ctx, args))
     }
 
-    fn finish_array_access(&mut self, expr: Expr) -> ParserResult<Expr> {
+    fn finish_array_access(&mut self, expr_ctx: ExprCtx) -> ParserResult<ExprCtx> {
         let mut args = Vec::new();
 
         if !self.match_next(RightParen)? {
@@ -869,46 +878,56 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        Ok(CallExpr::new(expr, args))
+        Ok(CallExpr::new(self.pos.clone(), expr_ctx, args))
     }
 
-    fn primary(&mut self) -> ParserResult<Expr> {
+    fn primary(&mut self) -> ParserResult<ExprCtx> {
         let next = self.next().unwrap().unwrap();
 
         match next.token_type {
             Nil => {
-                return Ok(Expr::Literal(Literal::Nil));
+                return Ok(Literal::new(self.pos.clone(), Literal::Nil));
             }
             True => {
-                return Ok(Expr::Literal(Literal::Boolean(true)));
+                return Ok(Literal::new(self.pos.clone(), Literal::Boolean(true)));
             }
             False => {
-                return Ok(Expr::Literal(Literal::Boolean(false)));
+                return Ok(Literal::new(self.pos.clone(), Literal::Boolean(false)));
             }
             Number(nb) => {
-                return Ok(Expr::Literal(Literal::Number(nb.clone())));
+                return Ok(Literal::new(self.pos.clone(), Literal::Number(nb.clone())));
             }
             String(s) => {
-                return Ok(Expr::Literal(Literal::String(s.clone())));
+                return Ok(Literal::new(self.pos.clone(), Literal::String(s.clone())));
             }
             LeftParen => {
-                let expr = self.expression()?;
+                let expr_ctx = self.expression()?;
                 if self.consume(RightParen)? {
-                    return Ok(GroupingExpr::new(expr));
+                    return Ok(GroupingExpr::new(self.pos.clone(), expr_ctx));
                 } else {
                     return Err(ParserError::UnmatchingClosingParen(self.pos.clone()));
                 }
             }
-            Identifier(name) => return Ok(VarExpr::new(self.identifiers.next_with_name(&name))),
+            Identifier(name) => {
+                return Ok(VarExpr::new(
+                    self.pos.clone(),
+                    self.identifiers.next_with_name(&name),
+                ))
+            }
             Fun => self.function_declaration(),
-            This => Ok(Expr::This(ThisExpr {
-                identifier: self.identifiers.next_with_handle(Identifier::this()),
-            })),
+            This => Ok(ThisExpr::new(
+                self.pos.clone(),
+                self
+                    .identifiers
+                    .next_with_handle(Identifier::this()),
+            )),
             Super => {
                 if self.consume(Dot)? {
                     if let Some(method) = self.consume_identifier()? {
                         return Ok(SuperExpr::new(
-                            self.identifiers.next_with_handle(Identifier::super_()),
+                            self.pos.clone(), 
+                            self.identifiers
+                                .next_with_handle(Identifier::super_()),
                             method,
                         ));
                     }
@@ -926,6 +945,7 @@ impl<'a> Parser<'a> {
                 return;
             }
 
+            // TODO: return ¨ParseErrors instead of printing in place
             match self.next() {
                 Some(Ok(t)) => match t.token_type {
                     Class | Fun | Var | For | If | While | Print | Return => return,

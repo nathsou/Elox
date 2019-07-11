@@ -1,6 +1,7 @@
 use super::statements::Stmt;
 use super::IdentifierUse;
-use crate::scanner::token::token_type::TokenType;
+use crate::scanner::token::{token_type::TokenType, Position};
+use std::fmt;
 
 #[derive(Clone)]
 pub enum Literal {
@@ -8,6 +9,12 @@ pub enum Literal {
     Number(f64),
     String(String),
     Boolean(bool),
+}
+
+impl Literal {
+    pub fn new(pos: Position, literal: Literal) -> ExprCtx {
+        ExprCtx::new(Expr::Literal(literal), pos)
+    }
 }
 
 #[derive(Clone)]
@@ -27,6 +34,22 @@ pub enum Expr {
     Super(SuperExpr),
 }
 
+#[derive(Clone)]
+pub struct ExprCtx {
+    pub expr: Expr,
+    pos: Position,
+}
+
+impl ExprCtx {
+    pub fn new(expr: Expr, pos: Position) -> ExprCtx {
+        ExprCtx { expr, pos }
+    }
+
+    pub fn pos(&self) -> Position {
+        self.pos.clone()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum BinaryOperator {
     Minus,
@@ -40,6 +63,27 @@ pub enum BinaryOperator {
     GreaterEqual,
     Less,
     LessEqual,
+}
+
+impl fmt::Display for BinaryOperator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use BinaryOperator::*;
+        write!(f, "{}", 
+            match self {
+                Minus => "-",
+                Plus => "+",
+                Slash => "/",
+                Star => "*",
+                Percent => "%",
+                BangEqual => "!=",
+                EqualEqual => "==",
+                Greater => ">",
+                GreaterEqual => ">=",
+                Less => "<",
+                LessEqual => "<=",
+            }
+        )
+    }
 }
 
 impl BinaryOperator {
@@ -67,19 +111,29 @@ impl BinaryOperator {
 }
 
 #[derive(Clone)]
+pub struct BinaryOperatorCtx {
+    pub op: BinaryOperator,
+    pub pos: Position,
+}
+
+#[derive(Clone)]
 pub struct BinaryExpr {
-    pub left: Expr,
-    pub operator: BinaryOperator,
-    pub right: Expr,
+    pub left: ExprCtx,
+    pub operator: BinaryOperatorCtx,
+    pub right: ExprCtx,
 }
 
 impl BinaryExpr {
-    pub fn new(left: Expr, operator: BinaryOperator, right: Expr) -> Expr {
-        Expr::Binary(Box::new(BinaryExpr {
-            left,
-            operator,
-            right,
-        }))
+    pub fn new(pos: Position, left: ExprCtx, operator: BinaryOperator, right: ExprCtx) -> ExprCtx {
+        ExprCtx::new(
+            Expr::Binary(Box::new(
+                BinaryExpr {
+                    left,
+                    operator: BinaryOperatorCtx { pos: pos.clone(), op: operator },
+                    right,
+                })),
+                pos,
+            )
     }
 }
 
@@ -89,26 +143,40 @@ pub enum UnaryOperator {
     Bang,
 }
 
+impl fmt::Display for UnaryOperator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", 
+            match self {
+                UnaryOperator::Minus => "-",
+                UnaryOperator::Bang => "!",
+            }
+        )
+    }
+}
+
 #[derive(Clone)]
 pub struct UnaryExpr {
     pub operator: UnaryOperator,
-    pub right: Expr,
+    pub right: ExprCtx,
 }
 
 impl UnaryExpr {
-    pub fn new(operator: UnaryOperator, right: Expr) -> Expr {
-        Expr::Unary(Box::new(UnaryExpr { operator, right }))
+    pub fn new(pos: Position, operator: UnaryOperator, right: ExprCtx) -> ExprCtx {
+        let expr = Expr::Unary(Box::new(UnaryExpr { operator, right }));
+
+        ExprCtx::new(expr, pos)
     }
 }
 
 #[derive(Clone)]
 pub struct GroupingExpr {
-    pub expression: Expr,
+    pub expression: ExprCtx,
 }
 
 impl GroupingExpr {
-    pub fn new(expression: Expr) -> Expr {
-        Expr::Grouping(Box::new(GroupingExpr { expression }))
+    pub fn new(pos: Position, expression: ExprCtx) -> ExprCtx {
+        let expr = Expr::Grouping(Box::new(GroupingExpr { expression }));
+        ExprCtx::new(expr, pos)
     }
 }
 
@@ -118,20 +186,21 @@ pub struct VarExpr {
 }
 
 impl VarExpr {
-    pub fn new(identifier: IdentifierUse) -> Expr {
-        Expr::Var(VarExpr { identifier })
+    pub fn new(pos: Position, identifier: IdentifierUse) -> ExprCtx {
+        ExprCtx::new(Expr::Var(VarExpr { identifier }), pos)
     }
 }
 
 #[derive(Clone)]
 pub struct AssignExpr {
     pub identifier: IdentifierUse,
-    pub expr: Expr,
+    pub expr: ExprCtx,
 }
 
 impl AssignExpr {
-    pub fn new(identifier: IdentifierUse, expr: Expr) -> Expr {
-        Expr::Assign(Box::new(AssignExpr { identifier, expr }))
+    pub fn new(pos: Position, identifier: IdentifierUse, expr: ExprCtx) -> ExprCtx {
+        let expr = Expr::Assign(Box::new(AssignExpr { identifier, expr }));
+        ExprCtx::new(expr, pos)
     }
 }
 
@@ -143,30 +212,33 @@ pub enum LogicalOperator {
 
 #[derive(Clone)]
 pub struct LogicalExpr {
-    pub left: Expr,
+    pub left: ExprCtx,
     pub operator: LogicalOperator,
-    pub right: Expr,
+    pub right: ExprCtx,
 }
 
 impl LogicalExpr {
-    pub fn new(left: Expr, operator: LogicalOperator, right: Expr) -> Expr {
-        Expr::Logical(Box::new(LogicalExpr {
+    pub fn new(pos: Position, left: ExprCtx, operator: LogicalOperator, right: ExprCtx) -> ExprCtx {
+        let expr = Expr::Logical(Box::new(LogicalExpr {
             left,
             operator,
             right,
-        }))
+        }));
+
+        ExprCtx::new(expr, pos)
     }
 }
 
 #[derive(Clone)]
 pub struct CallExpr {
-    pub callee: Expr,
-    pub args: Vec<Expr>,
+    pub callee: ExprCtx,
+    pub args: Vec<ExprCtx>,
 }
 
 impl CallExpr {
-    pub fn new(callee: Expr, args: Vec<Expr>) -> Expr {
-        Expr::Call(Box::new(CallExpr { callee, args }))
+    pub fn new(pos: Position, callee: ExprCtx, args: Vec<ExprCtx>) -> ExprCtx {
+        let expr = Expr::Call(Box::new(CallExpr { callee, args }));
+        ExprCtx::new(expr, pos)
     }
 }
 
@@ -177,38 +249,48 @@ pub struct FuncExpr {
     pub body: Vec<Stmt>,
 }
 
+#[derive(Clone)]
+pub struct ExprWithCtxt<T> {
+    pub expr: T,
+    pub pos: Position,
+}
+
 impl FuncExpr {
-    pub fn new(name: Option<IdentifierUse>, params: Vec<IdentifierUse>, body: Vec<Stmt>) -> Expr {
-        Expr::Func(FuncExpr { name, params, body })
+    pub fn new(pos: Position, name: Option<IdentifierUse>, params: Vec<IdentifierUse>, body: Vec<Stmt>) -> ExprCtx {
+        let expr = Expr::Func(FuncExpr { name, params, body });
+        ExprCtx::new(expr, pos)
     }
 }
 
 #[derive(Clone)]
 pub struct GetExpr {
     pub property: IdentifierUse,
-    pub object: Expr,
+    pub object: ExprCtx,
 }
 
 impl GetExpr {
-    pub fn new(property: IdentifierUse, object: Expr) -> Expr {
-        Expr::Get(Box::new(GetExpr { property, object }))
+    pub fn new(pos: Position, property: IdentifierUse, object: ExprCtx) -> ExprCtx {
+        let expr = Expr::Get(Box::new(GetExpr { property, object }));
+        ExprCtx::new(expr, pos)
     }
 }
 
 #[derive(Clone)]
 pub struct SetExpr {
     pub property: IdentifierUse,
-    pub object: Expr,
-    pub value: Expr,
+    pub object: ExprCtx,
+    pub value: ExprCtx,
 }
 
 impl SetExpr {
-    pub fn new(property: IdentifierUse, object: Expr, value: Expr) -> Expr {
-        Expr::Set(Box::new(SetExpr {
+    pub fn new(pos: Position, property: IdentifierUse, object: ExprCtx, value: ExprCtx) -> ExprCtx {
+        let expr = Expr::Set(Box::new(SetExpr {
             property,
             object,
             value,
-        }))
+        }));
+
+        ExprCtx::new(expr, pos)
     }
 }
 
@@ -219,12 +301,19 @@ pub struct SuperExpr {
 }
 
 impl SuperExpr {
-    pub fn new(identifier: IdentifierUse, method: IdentifierUse) -> Expr {
-        Expr::Super(SuperExpr { identifier, method })
+    pub fn new(pos: Position, identifier: IdentifierUse, method: IdentifierUse) -> ExprCtx {
+        let expr = Expr::Super(SuperExpr { identifier, method });
+        ExprCtx::new(expr, pos)
     }
 }
 
 #[derive(Clone)]
 pub struct ThisExpr {
     pub identifier: IdentifierUse,
+}
+
+impl ThisExpr {
+    pub fn new(pos: Position, identifier: IdentifierUse) -> ExprCtx {
+        ExprCtx::new(Expr::This(ThisExpr { identifier }), pos)
+    }
 }

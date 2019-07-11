@@ -152,6 +152,7 @@ impl<'a> Resolver<'a> {
     pub fn name(&self, handle: IdentifierHandle) -> std::string::String {
         self.names[handle].clone()
     }
+
 }
 
 pub trait LexicallyScoped {
@@ -172,21 +173,21 @@ impl LexicallyScoped for Stmt {
             Stmt::VarDecl(decl) => {
                 resolver.declare(decl.identifier.name)?;
                 if let Some(init) = &decl.initializer {
-                    init.resolve(resolver)?;
+                    init.expr.resolve(resolver)?;
                 }
                 resolver.define(decl.identifier.name);
                 Ok(())
             }
-            Stmt::Expr(stmt) => stmt.expr.resolve(resolver),
+            Stmt::Expr(stmt) => stmt.expr.expr.resolve(resolver),
             Stmt::If(if_stmt) => {
-                if_stmt.condition.resolve(resolver)?;
+                if_stmt.condition.expr.resolve(resolver)?;
                 if_stmt.then_branch.resolve(resolver)?;
                 if let Some(else_branch) = &if_stmt.else_branch {
                     else_branch.resolve(resolver)?;
                 }
                 Ok(())
             }
-            Stmt::Print(print_stmt) => print_stmt.value.resolve(resolver),
+            Stmt::Print(print_stmt) => print_stmt.value.expr.resolve(resolver),
             Stmt::Return(ret_stmt) => {
                 match resolver.func_type {
                     FunctionType::Outside => {
@@ -205,12 +206,12 @@ impl LexicallyScoped for Stmt {
                 }
 
                 if let Some(expr) = &ret_stmt.value {
-                    expr.resolve(resolver)?;
+                    expr.expr.resolve(resolver)?;
                 }
                 Ok(())
             }
             Stmt::While(while_stmt) => {
-                while_stmt.condition.resolve(resolver)?;
+                while_stmt.condition.expr.resolve(resolver)?;
                 while_stmt.body.resolve(resolver)?;
                 Ok(())
             }
@@ -240,14 +241,14 @@ impl LexicallyScoped for Stmt {
                 resolver.define(Identifier::this());
 
                 for method in &class_decl.methods {
-                    if let Some(method_handle) = method.name {
+                    if let Some(method_handle) = method.expr.name {
                         let func_type = if method_handle.name == Identifier::init() {
                             FunctionType::Initializer
                         } else {
                             FunctionType::Method
                         };
 
-                        resolver.resolve_function(method, func_type)?;
+                        resolver.resolve_function(&method.expr, func_type)?;
                     } else {
                         return Err(LexicalScopeResolutionError::AnonymousClassMethod(resolver.name(resolver.class_name.unwrap())));
                     }
@@ -289,7 +290,7 @@ impl LexicallyScoped for Expr {
         match self {
             Expr::Var(expr) => expr.resolve(resolver),
             Expr::Assign(assignment) => {
-                assignment.expr.resolve(resolver)?;
+                assignment.expr.expr.resolve(resolver)?;
                 resolver.resolve_local(&assignment.identifier);
                 Ok(())
             }
@@ -303,29 +304,29 @@ impl LexicallyScoped for Expr {
                 Ok(())
             }
             Expr::Binary(bin) => {
-                bin.left.resolve(resolver)?;
-                bin.right.resolve(resolver)?;
+                bin.left.expr.resolve(resolver)?;
+                bin.right.expr.resolve(resolver)?;
                 Ok(())
             }
             Expr::Call(call) => {
-                call.callee.resolve(resolver)?;
+                call.callee.expr.resolve(resolver)?;
                 for arg in &call.args {
-                    arg.resolve(resolver)?;
+                    arg.expr.resolve(resolver)?;
                 }
                 Ok(())
             }
-            Expr::Grouping(group) => group.expression.resolve(resolver),
+            Expr::Grouping(group) => group.expression.expr.resolve(resolver),
             Expr::Literal(_) => Ok(()),
             Expr::Logical(op) => {
-                op.left.resolve(resolver)?;
-                op.right.resolve(resolver)?;
+                op.left.expr.resolve(resolver)?;
+                op.right.expr.resolve(resolver)?;
                 Ok(())
             }
-            Expr::Unary(unary) => unary.right.resolve(resolver),
-            Expr::Get(get) => get.object.resolve(resolver),
+            Expr::Unary(unary) => unary.right.expr.resolve(resolver),
+            Expr::Get(get) => get.object.expr.resolve(resolver),
             Expr::Set(set) => {
-                set.object.resolve(resolver)?;
-                set.value.resolve(resolver)?;
+                set.object.expr.resolve(resolver)?;
+                set.value.expr.resolve(resolver)?;
                 Ok(())
             }
             Expr::This(this_expr) => {

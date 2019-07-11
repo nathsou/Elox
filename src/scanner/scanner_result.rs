@@ -22,8 +22,12 @@ impl fmt::Display for ScannerError {
     }
 }
 
-impl ScannerError {
-    pub fn position(&self) -> &Position {
+pub trait ErrorPosition: fmt::Display {
+    fn position(&self) -> &Position;
+}
+
+impl ErrorPosition for ScannerError {
+    fn position(&self) -> &Position {
         use ScannerError::*;
         match self {
             UnexpectedCharacter(pos, _) => pos,

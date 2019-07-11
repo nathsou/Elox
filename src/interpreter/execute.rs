@@ -6,7 +6,7 @@ use super::lox_function::LoxFunction;
 use super::value::{CallableValue, Value};
 use crate::interpreter::eval_result::{EvalError, EvalResult};
 use crate::interpreter::Interpreter;
-use crate::parser::expressions::Expr;
+use crate::parser::expressions::{Expr, ExprCtx, ExprWithCtxt};
 use crate::parser::statements::Stmt;
 use crate::parser::{Identifier, IdentifierHandle};
 use fnv::FnvHashMap;
@@ -24,8 +24,8 @@ impl Exec for Interpreter {
                 (self.host.print)(val.to_str(self)?);
                 Ok(())
             }
-            Stmt::Expr(expr) => {
-                self.eval(env, &expr.expr)?;
+            Stmt::Expr(expr_stmt) => {
+                self.eval(env, &expr_stmt.expr)?;
                 Ok(())
             }
             Stmt::VarDecl(decl) => {
@@ -77,17 +77,17 @@ impl Exec for Interpreter {
             Stmt::ClassDecl(class_decl) => {
                 let mut superclass = None;
                 if let Some(parent_class) = &class_decl.superclass {
-                    let val = self.eval(env, &Expr::Var(parent_class.clone()))?;
+                    let val = self.eval(env, &ExprCtx::new(Expr::Var(parent_class.clone()), class_decl.pos.clone()))?;
                     let type_ = val.type_();
                     if let Some(callable) = &val.into_callable_value() {
                         match callable {
                             CallableValue::Class(c) => {
                                 superclass = Some(Rc::clone(c));
                             }
-                            _ => return Err(EvalError::SuperclassMustBeAClass(type_)),
+                            _ => return Err(EvalError::SuperclassMustBeAClass(class_decl.pos.clone(), type_)),
                         }
                     } else {
-                        return Err(EvalError::SuperclassMustBeAClass(type_));
+                        return Err(EvalError::SuperclassMustBeAClass(class_decl.pos.clone(), type_));
                     }
                 }
 
@@ -107,13 +107,16 @@ impl Exec for Interpreter {
                     FnvHashMap::default();
 
                 for method in &class_decl.methods {
-                    let name = method.name.unwrap().name;
+                    let name_handle = method.expr.name.unwrap();
                     let func = LoxFunction::new(
-                        method.clone(),
+                        ExprWithCtxt {
+                            expr: method.expr.clone(),
+                            pos: method.pos.clone(),
+                        },
                         environment.clone(),
-                        name == Identifier::init(),
+                        name_handle.name == Identifier::init(),
                     );
-                    methods.insert(name, Rc::new(func));
+                    methods.insert(name_handle.name, Rc::new(func));
                 }
 
                 let lox_class = Rc::new(LoxClass::new(

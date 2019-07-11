@@ -1,4 +1,4 @@
-use super::lox_callable::LoxCallable;
+use super::lox_callable::{LoxCallable};
 use super::value::Value;
 use super::Environment;
 use super::Interpreter;

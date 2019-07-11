@@ -1,5 +1,6 @@
 use super::IdentifierUse;
-use crate::parser::expressions::{Expr, FuncExpr, VarExpr};
+use crate::parser::expressions::{ExprCtx, FuncExpr, VarExpr, ExprWithCtxt};
+use super::Position;
 
 #[derive(Clone)]
 pub enum Stmt {
@@ -16,22 +17,22 @@ pub enum Stmt {
 // expression statement aka an expression followed by ;
 #[derive(Clone)]
 pub struct ExprStmt {
-    pub expr: Expr,
+    pub expr: ExprCtx,
 }
 
 impl ExprStmt {
-    pub fn to_stmt(expr: Expr) -> Stmt {
+    pub fn to_stmt(expr: ExprCtx) -> Stmt {
         Stmt::Expr(ExprStmt { expr })
     }
 }
 
 #[derive(Clone)]
 pub struct PrintStmt {
-    pub value: Expr,
+    pub value: ExprCtx,
 }
 
 impl PrintStmt {
-    pub fn to_stmt(value: Expr) -> Stmt {
+    pub fn to_stmt(value: ExprCtx) -> Stmt {
         Stmt::Print(PrintStmt { value })
     }
 }
@@ -39,11 +40,11 @@ impl PrintStmt {
 #[derive(Clone)]
 pub struct VarDeclStmt {
     pub identifier: IdentifierUse,
-    pub initializer: Option<Expr>,
+    pub initializer: Option<ExprCtx>,
 }
 
 impl VarDeclStmt {
-    pub fn to_stmt(identifier: IdentifierUse, initializer: Option<Expr>) -> Stmt {
+    pub fn to_stmt(identifier: IdentifierUse, initializer: Option<ExprCtx>) -> Stmt {
         Stmt::VarDecl(VarDeclStmt {
             identifier,
             initializer,
@@ -64,13 +65,13 @@ impl BlockStmt {
 
 #[derive(Clone)]
 pub struct IfStmt {
-    pub condition: Expr,
+    pub condition: ExprCtx,
     pub then_branch: Box<Stmt>,
     pub else_branch: Option<Box<Stmt>>,
 }
 
 impl IfStmt {
-    pub fn to_stmt(condition: Expr, then_branch: Stmt, else_branch: Option<Stmt>) -> Stmt {
+    pub fn to_stmt(condition: ExprCtx, then_branch: Stmt, else_branch: Option<Stmt>) -> Stmt {
         Stmt::If(IfStmt {
             condition,
             then_branch: Box::new(then_branch),
@@ -85,12 +86,12 @@ impl IfStmt {
 
 #[derive(Clone)]
 pub struct WhileStmt {
-    pub condition: Expr,
+    pub condition: ExprCtx,
     pub body: Box<Stmt>,
 }
 
 impl WhileStmt {
-    pub fn to_stmt(condition: Expr, body: Stmt) -> Stmt {
+    pub fn to_stmt(condition: ExprCtx, body: Stmt) -> Stmt {
         Stmt::While(WhileStmt {
             condition,
             body: Box::new(body),
@@ -100,11 +101,11 @@ impl WhileStmt {
 
 #[derive(Clone)]
 pub struct ReturnStmt {
-    pub value: Option<Expr>,
+    pub value: Option<ExprCtx>,
 }
 
 impl ReturnStmt {
-    pub fn to_stmt(value: Option<Expr>) -> Stmt {
+    pub fn to_stmt(value: Option<ExprCtx>) -> Stmt {
         Stmt::Return(ReturnStmt { value })
     }
 }
@@ -113,13 +114,14 @@ impl ReturnStmt {
 pub struct ClassDeclStmt {
     pub identifier: IdentifierUse,
     pub superclass: Option<VarExpr>,
-    pub methods: Vec<FuncExpr>
+    pub methods: Vec<ExprWithCtxt<FuncExpr>>,
+    pub pos: Position,
 }
 
 impl ClassDeclStmt {
-    pub fn to_stmt(identifier: IdentifierUse, superclass: Option<VarExpr>, methods: Vec<FuncExpr>) -> Stmt {
+    pub fn to_stmt(pos: Position, identifier: IdentifierUse, superclass: Option<VarExpr>, methods: Vec<ExprWithCtxt<FuncExpr>>) -> Stmt {
         Stmt::ClassDecl(ClassDeclStmt {
-            identifier, superclass, methods
+            identifier, superclass, methods, pos
         })
     }
 }

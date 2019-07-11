@@ -14,7 +14,7 @@ mod natives;
 pub mod value;
 
 use crate::parser::{
-    statements::Stmt, IdentifierHandle, IdentifierNames, IdentifierUse, IdentifierUseHandle,
+    statements::Stmt, IdentifierHandle, IdentifierNames, IdentifierUse, IdentifierUseHandle
 };
 use environment::Environment;
 use eval_result::EvalResult;
@@ -28,7 +28,7 @@ pub struct Interpreter {
     global: Environment,
     depths: FnvHashMap<IdentifierUseHandle, usize>,
     host: Rc<Host>,
-    identifier_names: Rc<IdentifierNames>,
+    names: Rc<IdentifierNames>,
 }
 
 impl Interpreter {
@@ -37,7 +37,7 @@ impl Interpreter {
             global: env,
             depths: fnv::FnvHashMap::default(),
             host: Rc::clone(host),
-            identifier_names: Rc::clone(&names),
+            names: Rc::clone(&names),
         }
     }
 
@@ -54,7 +54,7 @@ impl Interpreter {
     }
 
     pub fn name(&self, handle: IdentifierHandle) -> String {
-        self.identifier_names[handle].clone()
+        self.names[handle].clone()
     }
 
     pub fn lookup_variable(&self, env: &Environment, identifier: &IdentifierUse) -> Option<Value> {

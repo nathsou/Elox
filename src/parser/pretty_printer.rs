@@ -27,13 +27,13 @@ impl PrettyPrinter for Expr {
 
 impl PrettyPrinter for UnaryExpr {
     fn pretty_print(&self) -> String {
-        format!("({:?} {})", self.operator, self.right.pretty_print())
+        format!("({:?} {})", self.operator, self.right.expr.pretty_print())
     }
 }
 
 impl PrettyPrinter for GroupingExpr {
     fn pretty_print(&self) -> String {
-        format!("(group {})", self.expression.pretty_print())
+        format!("(group {})", self.expression.expr.pretty_print())
     }
 }
 
@@ -41,9 +41,9 @@ impl PrettyPrinter for BinaryExpr {
     fn pretty_print(&self) -> String {
         format!(
             "({:?} {} {})",
-            self.operator,
-            self.left.pretty_print(),
-            self.right.pretty_print()
+            self.operator.op,
+            self.left.expr.pretty_print(),
+            self.right.expr.pretty_print()
         )
     }
 }
@@ -52,9 +52,9 @@ impl PrettyPrinter for LogicalExpr {
     fn pretty_print(&self) -> String {
         format!(
             "(LogicalExpr {} {:?} {})",
-            self.left.pretty_print(),
+            self.left.expr.pretty_print(),
             self.operator,
-            self.right.pretty_print()
+            self.right.expr.pretty_print()
         )
     }
 }
@@ -87,7 +87,7 @@ impl PrettyPrinter for AssignExpr {
         String::from(format!(
             "(AssignExpr {} {})",
             self.identifier,
-            self.expr.pretty_print()
+            self.expr.expr.pretty_print()
         ))
     }
 }
@@ -97,10 +97,10 @@ impl PrettyPrinter for CallExpr {
         let args = self
             .args
             .iter()
-            .map(|arg| arg.pretty_print())
+            .map(|arg| arg.expr.pretty_print())
             .collect::<String>();
 
-        format!("(CallExpr {}({}))", self.callee.pretty_print(), args)
+        format!("(CallExpr {}({}))", self.callee.expr.pretty_print(), args)
     }
 }
 
@@ -124,7 +124,7 @@ impl PrettyPrinter for FuncExpr {
 
 impl PrettyPrinter for GetExpr {
     fn pretty_print(&self) -> String {
-        format!("(GetExpr {}.{})", self.object.pretty_print(), self.property)
+        format!("(GetExpr {}.{})", self.object.expr.pretty_print(), self.property)
     }
 }
 
@@ -132,9 +132,9 @@ impl PrettyPrinter for SetExpr {
     fn pretty_print(&self) -> String {
         format!(
             "(SetExpr {}.{} <- {})",
-            self.object.pretty_print(),
+            self.object.expr.pretty_print(),
             self.property,
-            self.value.pretty_print()
+            self.value.expr.pretty_print()
         )
     }
 }
@@ -156,13 +156,13 @@ impl PrettyPrinter for Stmt {
 
 impl PrettyPrinter for PrintStmt {
     fn pretty_print(&self) -> String {
-        format!("(Print {})", self.value.pretty_print())
+        format!("(Print {})", self.value.expr.pretty_print())
     }
 }
 
 impl PrettyPrinter for ExprStmt {
     fn pretty_print(&self) -> String {
-        format!("(ExprStmt {})", self.expr.pretty_print())
+        format!("(ExprStmt {})", self.expr.expr.pretty_print())
     }
 }
 
@@ -172,7 +172,7 @@ impl PrettyPrinter for VarDeclStmt {
             format!(
                 "(VarDeclStmt {} <- {:?})",
                 self.identifier,
-                init.pretty_print()
+                init.expr.pretty_print()
             )
         } else {
             format!("(VarDeclStmt {} <- nil)", self.identifier)
@@ -197,14 +197,14 @@ impl PrettyPrinter for IfStmt {
         if let Some(else_branch) = &self.else_branch {
             format!(
                 "(IfStmt ({}) => ({}) else ({}))",
-                self.condition.pretty_print(),
+                self.condition.expr.pretty_print(),
                 self.then_branch.pretty_print(),
                 else_branch.pretty_print()
             )
         } else {
             format!(
                 "(IfStmt ({}) => ({}))",
-                self.condition.pretty_print(),
+                self.condition.expr.pretty_print(),
                 self.then_branch.pretty_print()
             )
         }
@@ -215,7 +215,7 @@ impl PrettyPrinter for WhileStmt {
     fn pretty_print(&self) -> String {
         format!(
             "(WhileStmt {} => {})",
-            self.condition.pretty_print(),
+            self.condition.expr.pretty_print(),
             self.body.pretty_print()
         )
     }
@@ -224,7 +224,7 @@ impl PrettyPrinter for WhileStmt {
 impl PrettyPrinter for ReturnStmt {
     fn pretty_print(&self) -> String {
         if let Some(ret) = &self.value {
-            return format!("(ReturnStmt {})", ret.pretty_print());
+            return format!("(ReturnStmt {})", ret.expr.pretty_print());
         }
 
         format!("(ReturnStmt nil)")
@@ -238,7 +238,7 @@ impl PrettyPrinter for ClassDeclStmt {
             self.identifier,
             self.methods
                 .iter()
-                .map(|stmt| format!("{}, ", stmt.pretty_print()))
+                .map(|stmt| format!("{}, ", stmt.expr.pretty_print()))
                 .collect::<String>()
         )
     }

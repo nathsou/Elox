@@ -2,6 +2,7 @@ use crate::interpreter::environment::Environment;
 use crate::interpreter::host::Host;
 use crate::interpreter::lexical_scope::Resolver;
 use crate::interpreter::Interpreter;
+use crate::scanner::scanner_result::ErrorPosition;
 // use crate::parser::pretty_printer::PrettyPrinter;
 use crate::parser::{IdentifierHandlesGenerator, Parser};
 use crate::scanner::Scanner;
@@ -25,6 +26,7 @@ impl Lox {
         }
     }
 
+    #[allow(dead_code)]
     pub fn run_file(&mut self, path: &Path) {
         let contents = fs::read_to_string(path).expect("incorrect file path");
         self.run(&contents);
@@ -33,6 +35,7 @@ impl Lox {
         }
     }
 
+    #[allow(dead_code)]
     pub fn run_prompt(&mut self) {
         println!("Welcome to the lox REPL");
 
@@ -50,6 +53,12 @@ impl Lox {
         }
     }
 
+    fn throw_error(&mut self, err: impl ErrorPosition) {
+        self.had_error = true;
+        let pos = err.position();
+        (self.host.error)(format!("[line {}:{}]: {}", pos.line, pos.col, err));
+    }
+
     pub fn run(&mut self, source: &str) {
         let scanner = Scanner::new(source.chars().peekable());
         let mut identifiers = IdentifierHandlesGenerator::new();
@@ -62,35 +71,29 @@ impl Lox {
                 //     println!("{}", stmt.pretty_print());
                 // }
 
-                let identifier_names = Rc::new(parser.identifiers());
+                let names = Rc::new(parser.names());
 
                 // println!("{:?}", identifier_names);
 
-                let mut interpreter = Interpreter::new(global, &self.host, &identifier_names);
-                let mut resolver = Resolver::new(&mut interpreter, &identifier_names);
+                let mut interpreter = Interpreter::new(global, &self.host, &names);
+                let mut resolver = Resolver::new(&mut interpreter, &names);
 
                 match resolver.resolve(&ast) {
                     Ok(()) => {
                         let res = interpreter.interpret(&ast);
                         match res {
                             Ok(()) => {}
-                            Err(err) => {
-                                self.had_error = true;
-                                (self.host.error)(format!("{}", err));
-                            }
+                            Err(err) => self.throw_error(err),
                         }
                     }
                     Err(err) => {
                         self.had_error = true;
+                        // let pos = err.position();
                         (self.host.error)(format!("{}", err));
                     }
                 }
             }
-            Err(err) => {
-                self.had_error = true;
-                let pos = err.position();
-                (self.host.error)(format!("[line {}:{}] {}", pos.line, pos.col, err));
-            }
+            Err(err) => self.throw_error(err),
         }
     }
 }
