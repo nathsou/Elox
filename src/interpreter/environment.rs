@@ -1,6 +1,6 @@
 extern crate fnv;
 
-use super::lox_array::create_lox_array_class;
+use super::lox_array::create_elox_array_class;
 use super::natives::Clock;
 use super::value::{CallableValue, Value};
 use crate::parser::{Identifier, IdentifierHandle, IdentifierHandlesGenerator};
@@ -54,7 +54,7 @@ impl Environment {
 
         self.define(
             Identifier::array(),
-            Value::Callable(CallableValue::Class(Rc::new(create_lox_array_class(
+            Value::Callable(CallableValue::Class(Rc::new(create_elox_array_class(
                 &self,
                 identifiers,
             )))),

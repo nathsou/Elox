@@ -1,0 +1,23 @@
+// Pseudo Random Number Generator
+class PRNG {
+  init(seed = clock() * 1000) {
+    this.a = 25214903917;
+    this.c = 11;
+    this.m = 281474976710656;
+    this.seed = seed;
+  }
+
+  next() {
+    this.seed = (this.a * this.seed + this.c) % this.m;
+    return this.seed / this.m;
+  }
+}
+ 
+var prng = PRNG();
+var nums = Array();
+
+for (var i = 0; i < 10; i++) {
+   nums.push(prng.next());
+}
+
+print nums;

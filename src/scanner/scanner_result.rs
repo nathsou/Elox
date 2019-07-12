@@ -1,5 +1,5 @@
-use std::fmt;
 use super::Position;
+use std::fmt;
 
 pub type ScannerResult<T> = Result<T, ScannerError>;
 
@@ -12,12 +12,8 @@ pub enum ScannerError {
 impl fmt::Display for ScannerError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ScannerError::UnexpectedCharacter(_, c) => {
-                write!(f, "Unexpected character '{}'", c)
-            }
-            ScannerError::UnterminatedString(_) => {
-                write!(f, "Unterminated string")
-            }
+            ScannerError::UnexpectedCharacter(_, c) => write!(f, "Unexpected character '{}'", c),
+            ScannerError::UnterminatedString(_) => write!(f, "Unterminated string"),
         }
     }
 }

@@ -1,20 +1,20 @@
 pub mod environment;
 
-mod eval;
-mod eval_result;
+pub mod eval;
+pub mod eval_result;
 mod execute;
 pub mod host;
 pub mod lexical_scope;
 pub mod lox_array;
-mod lox_callable;
+pub mod lox_callable;
 mod lox_class;
-mod lox_function;
+pub mod lox_function;
 mod lox_instance;
 mod natives;
 pub mod value;
 
 use crate::parser::{
-    statements::Stmt, IdentifierHandle, IdentifierNames, IdentifierUse, IdentifierUseHandle
+    statements::Stmt, IdentifierHandle, IdentifierNames, IdentifierUse, IdentifierUseHandle,
 };
 use environment::Environment;
 use eval_result::EvalResult;
@@ -57,12 +57,18 @@ impl Interpreter {
         self.names[handle].clone()
     }
 
+    pub fn names(&self) -> Rc<IdentifierNames> {
+        Rc::clone(&self.names)
+    }
+
     pub fn lookup_variable(&self, env: &Environment, identifier: &IdentifierUse) -> Option<Value> {
-        if let Some(&depth) = self.depths.get(&identifier.use_handle) {
+        let res = if let Some(&depth) = self.depths.get(&identifier.use_handle) {
             env.get(depth, identifier.name)
         } else {
             self.global.get(0, identifier.name)
-        }
+        };
+
+        res
     }
 
     pub fn assign_variable(

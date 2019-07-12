@@ -5,8 +5,6 @@ use super::lox_function::LoxFunction;
 use super::lox_instance::LoxInstance;
 use super::Interpreter;
 use crate::parser::Identifier;
-
-use std::fmt;
 use std::rc::Rc;
 
 #[derive(Clone, Debug)]
@@ -102,37 +100,40 @@ impl PartialEq for Value {
     }
 }
 
-impl fmt::Display for Value {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Value::Nil => write!(f, "nil"),
-            Value::Boolean(b) => write!(f, "{}", b),
-            Value::Number(nb) => write!(f, "{}", nb),
-            Value::String(s) => write!(f, "{}", s),
-            Value::Callable(c) => write!(f, "<callable {:?}>", c),
-            Value::Instance(inst) => write!(f, "<instance {:?}>", inst),
-        }
-    }
-}
-
 impl Value {
     pub fn to_str(&self, interpreter: &Interpreter) -> EvalResult<std::string::String> {
-        if let Value::Instance(inst) = self {
-            if let Some(res) = inst.call(Identifier::str_(), interpreter, vec![]) {
-                match res {
-                    Ok(Value::String(s)) => Ok(s),
-                    Ok(val) => Err(EvalError::ToStringMethodMustReturnAString(
-                        inst.method_pos(Identifier::str_()).unwrap(), // we already know it exists
-                        interpreter.name(inst.class_name()),
-                        val.type_()
-                    )),
-                    Err(err) => Err(err),
+        match self {
+            Value::Nil => Ok(format!("nil")),
+            Value::Boolean(b) => Ok(format!("{}", b)),
+            Value::Number(nb) => Ok(format!("{}", nb)),
+            Value::String(s) => Ok(format!("{}", s)),
+            Value::Instance(inst) => {
+                if let Some(res) = inst.call(Identifier::str_(), interpreter, vec![]) {
+                    match res {
+                        Ok(Value::String(s)) => Ok(s),
+                        Ok(val) => Err(EvalError::ToStringMethodMustReturnAString(
+                            inst.method_pos(Identifier::str_()).unwrap(), // we already know it exists
+                            interpreter.name(inst.class_name()),
+                            val.type_(),
+                        )),
+                        Err(err) => Err(err),
+                    }
+                } else {
+                    Ok(format!(
+                        "<instance {}>",
+                        interpreter.name(inst.class_name())
+                    ))
                 }
-            } else {
-                Ok("<instance>".into())
             }
-        } else {
-            Ok(format!("{}", self))
+            Value::Callable(callable) => {
+                let name = callable.clone().into_callable().name(&interpreter.names());
+
+                use CallableValue::*;
+                Ok(match callable {
+                    Function(_) | Native(_) => format!("<function {}>", name),
+                    Class(_) => format!("<class {}>", name),
+                })
+            }
         }
     }
 }

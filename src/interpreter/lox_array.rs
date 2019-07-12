@@ -10,12 +10,13 @@ use crate::parser::{Identifier, IdentifierHandlesGenerator};
 use fnv::FnvHashMap;
 use std::cell::RefCell;
 use std::rc::Rc;
+use crate::parser::expressions::ContextLessFuncParam::*;
 
 fn vec_handle() -> usize {
     0
 }
 
-pub fn create_lox_array_class(
+pub fn create_elox_array_class(
     env: &Environment,
     identifiers: &mut IdentifierHandlesGenerator,
 ) -> LoxClass {
@@ -37,7 +38,7 @@ pub fn create_lox_array_class(
             ),
             env.clone(),
             true,
-            0,
+            None,
             Identifier::init(),
         )),
     );
@@ -62,7 +63,9 @@ pub fn create_lox_array_class(
             ),
             env.clone(),
             false,
-            1,
+            Some(Rc::new(vec![
+                Required(identifiers.by_name("value"))
+            ])),
             push_handle,
         )),
     );
@@ -96,7 +99,9 @@ pub fn create_lox_array_class(
             ),
             env.clone(),
             false,
-            1,
+            Some(Rc::new(vec![
+                Required(identifiers.by_name("idx"))
+            ])),
             get_handle,
         )),
     );
@@ -131,7 +136,10 @@ pub fn create_lox_array_class(
             ),
             env.clone(),
             false,
-            2,
+            Some(Rc::new(vec![
+                Required(identifiers.by_name("idx")),
+                Required(identifiers.by_name("value")),
+            ])),
             set_handle,
         )),
     );
@@ -155,7 +163,7 @@ pub fn create_lox_array_class(
             ),
             env.clone(),
             false,
-            0,
+            None,
             length_handle,
         )),
     );
@@ -185,7 +193,7 @@ pub fn create_lox_array_class(
             ),
             env.clone(),
             false,
-            0,
+            None,
             Identifier::str_(),
         )),
     );

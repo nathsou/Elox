@@ -7,6 +7,7 @@ use super::value::{CallableValue, Value};
 use crate::interpreter::eval_result::{EvalError, EvalResult};
 use crate::interpreter::Interpreter;
 use crate::parser::expressions::{Expr, ExprCtx};
+use crate::parser::pretty_printer::PrettyPrinter;
 use crate::parser::statements::Stmt;
 use crate::parser::{Identifier, IdentifierHandle};
 use fnv::FnvHashMap;
@@ -77,17 +78,28 @@ impl Exec for Interpreter {
             Stmt::ClassDecl(class_decl) => {
                 let mut superclass = None;
                 if let Some(parent_class) = &class_decl.superclass {
-                    let val = self.eval(env, &ExprCtx::new(Expr::Var(parent_class.clone()), class_decl.pos.clone()))?;
+                    let val = self.eval(
+                        env,
+                        &ExprCtx::new(Expr::Var(parent_class.clone()), class_decl.pos.clone()),
+                    )?;
                     let type_ = val.type_();
                     if let Some(callable) = &val.into_callable_value() {
                         match callable {
                             CallableValue::Class(c) => {
                                 superclass = Some(Rc::clone(c));
                             }
-                            _ => return Err(EvalError::SuperclassMustBeAClass(class_decl.pos.clone(), type_)),
+                            _ => {
+                                return Err(EvalError::SuperclassMustBeAClass(
+                                    class_decl.pos.clone(),
+                                    type_,
+                                ))
+                            }
                         }
                     } else {
-                        return Err(EvalError::SuperclassMustBeAClass(class_decl.pos.clone(), type_));
+                        return Err(EvalError::SuperclassMustBeAClass(
+                            class_decl.pos.clone(),
+                            type_,
+                        ));
                     }
                 }
 
@@ -112,6 +124,7 @@ impl Exec for Interpreter {
                         method.clone(),
                         environment.clone(),
                         name_handle.name == Identifier::init(),
+                        method.context_less_params(self, env)?,
                     );
                     methods.insert(name_handle.name, Rc::new(func));
                 }

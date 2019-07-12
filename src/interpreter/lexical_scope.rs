@@ -1,7 +1,7 @@
 use super::Interpreter;
 use super::Stmt;
 use crate::parser::{
-    expressions::{Expr, ExprCtx, FuncExpr, VarExpr},
+    expressions::{Expr, ExprCtx, FuncExpr, VarExpr, FuncParam},
     Identifier, IdentifierHandle, IdentifierNames, IdentifierUse,
 };
 use crate::scanner::scanner_result::ErrorPosition;
@@ -132,9 +132,15 @@ impl<'a> Resolver<'a> {
 
         self.begin_scope();
 
-        for &param in func.params.iter() {
-            self.declare(param)?;
-            self.define(param.name);
+        if let Some(params) = &func.params {
+            for param in params.iter() {
+                let identifier = param.identifier();
+                self.declare(*identifier)?;
+                self.define(identifier.name);
+                if let FuncParam::DefaultValued(_, expr) = param {
+                    expr.resolve(self)?;
+                }
+            }
         }
 
         for stmt in &func.body {

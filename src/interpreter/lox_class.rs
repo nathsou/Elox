@@ -1,7 +1,7 @@
 use super::eval_result::EvalResult;
-use super::lox_callable::{LoxCallable};
-
+use super::lox_callable::LoxCallable;
 use super::lox_function::LoxFunction;
+use super::lox_function::LoxFunctionParams;
 use super::lox_instance::LoxInstance;
 use super::Environment;
 use super::Interpreter;
@@ -90,16 +90,16 @@ impl LoxCallable for LoxClass {
         Ok(Value::Instance(instance))
     }
 
-    fn arity(&self) -> usize {
+    fn params(&self) -> LoxFunctionParams {
         if let Some(initializer) = self.find_method(Identifier::init()) {
-            return initializer.arity();
+            return initializer.params();
         }
 
-        0usize
+        None
     }
 
     fn name(&self, names: &Rc<IdentifierNames>) -> String {
-        format!("{}.init", names[self.mold.identifier].clone())
+        format!("{}", names[self.mold.identifier].clone())
     }
 }
 

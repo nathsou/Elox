@@ -8,7 +8,7 @@ fun indexOf(array, val) {
     return nil;
 }
   
-class Dictionary {
+class Map {
     init() {
         this.keys = Array();
         this.values = Array();
@@ -47,14 +47,14 @@ class Dictionary {
     }
 }
   
-var friends = Dictionary();
+var map = Map();
   
-friends["alice"] = 20;
-friends["bob"] = 18;
-friends["charlie"] = "hoy!";
-friends["dan"] = "hey!";
-friends["bob"] = true;
+map["alice"] = 20;
+map["bob"] = 18;
+map["charlie"] = "hoy!";
+map["dan"] = "hey!";
+map["bob"] = true;
 
-print friends;
+print map;
 
   

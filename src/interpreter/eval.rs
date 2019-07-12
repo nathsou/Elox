@@ -3,7 +3,10 @@ use super::eval_result::{EvalError, EvalResult};
 use super::lox_function::LoxFunction;
 use super::value::{CallableValue, Value};
 use crate::interpreter::Interpreter;
-use crate::parser::expressions::{BinaryOperator, BinaryOperatorCtx, ExprCtx, Expr, Literal, LogicalOperator, UnaryOperator};
+use crate::parser::expressions::ContextLessFuncParam;
+use crate::parser::expressions::{
+    BinaryOperator, BinaryOperatorCtx, Expr, ExprCtx, Literal, LogicalOperator, UnaryOperator,
+};
 use crate::parser::Identifier;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -48,20 +51,36 @@ impl Eval for Interpreter {
                 let op_ctx = &expr.operator;
 
                 match op_ctx.op {
-                    BinaryOperator::Minus => arithmetic_op(op_ctx, &a, &b, |a, b| Value::Number(a - b)),
+                    BinaryOperator::Minus => {
+                        arithmetic_op(op_ctx, &a, &b, |a, b| Value::Number(a - b))
+                    }
                     BinaryOperator::Plus => match (&a, &b) {
                         (Value::Number(a), Value::Number(b)) => Ok(Value::Number(a + b)),
-                        (_, _) => Ok(Value::String(format!("{}{}", a, b))),
+                        (_, _) => Ok(Value::String(format!(
+                            "{}{}",
+                            a.to_str(&self)?,
+                            b.to_str(&self)?
+                        ))),
                     },
-                    BinaryOperator::Slash => arithmetic_op(op_ctx, &a, &b, |a, b| Value::Number(a / b)),
-                    BinaryOperator::Star => arithmetic_op(op_ctx, &a, &b, |a, b| Value::Number(a * b)),
-                    BinaryOperator::Percent => arithmetic_op(op_ctx, &a, &b, |a, b| Value::Number(a % b)),
+                    BinaryOperator::Slash => {
+                        arithmetic_op(op_ctx, &a, &b, |a, b| Value::Number(a / b))
+                    }
+                    BinaryOperator::Star => {
+                        arithmetic_op(op_ctx, &a, &b, |a, b| Value::Number(a * b))
+                    }
+                    BinaryOperator::Percent => {
+                        arithmetic_op(op_ctx, &a, &b, |a, b| Value::Number(a % b))
+                    }
 
-                    BinaryOperator::Greater => arithmetic_op(op_ctx, &a, &b, |a, b| Value::Boolean(a > b)),
+                    BinaryOperator::Greater => {
+                        arithmetic_op(op_ctx, &a, &b, |a, b| Value::Boolean(a > b))
+                    }
                     BinaryOperator::GreaterEqual => {
                         arithmetic_op(op_ctx, &a, &b, |a, b| Value::Boolean(a >= b))
                     }
-                    BinaryOperator::Less => arithmetic_op(op_ctx, &a, &b, |a, b| Value::Boolean(a < b)),
+                    BinaryOperator::Less => {
+                        arithmetic_op(op_ctx, &a, &b, |a, b| Value::Boolean(a < b))
+                    }
                     BinaryOperator::LessEqual => {
                         arithmetic_op(op_ctx, &a, &b, |a, b| Value::Boolean(a <= b))
                     }
@@ -75,7 +94,10 @@ impl Eval for Interpreter {
                     return Ok(value);
                 }
 
-                Err(EvalError::UndefinedVariable(expr_ctx.pos, self.name(var_expr.identifier.name)))
+                Err(EvalError::UndefinedVariable(
+                    expr_ctx.pos,
+                    self.name(var_expr.identifier.name),
+                ))
             }
             Expr::Assign(expr) => {
                 let assign_expr = expr.deref();
@@ -85,7 +107,10 @@ impl Eval for Interpreter {
                     return Ok(value);
                 }
 
-                Err(EvalError::UndefinedVariable(expr_ctx.pos, self.name(assign_expr.identifier.name)))
+                Err(EvalError::UndefinedVariable(
+                    expr_ctx.pos,
+                    self.name(assign_expr.identifier.name),
+                ))
             }
             Expr::Logical(expr) => {
                 let left = self.eval(env, &expr.left)?;
@@ -108,6 +133,7 @@ impl Eval for Interpreter {
             }
             Expr::Call(call_expr) => {
                 let callee = self.eval(env, &call_expr.callee)?;
+
                 let mut args = Vec::with_capacity(call_expr.args.len());
 
                 for arg in &call_expr.args {
@@ -117,10 +143,56 @@ impl Eval for Interpreter {
                 match callee {
                     Value::Callable(callable_value) => {
                         let callable = callable_value.into_callable();
-                        if callable.arity() != args.len() {
-                            let name = callable.name(&self.names);
-                            return Err(EvalError::WrongNumberOfArgs(expr_ctx.pos, callable.arity(), args.len(), name));
-                        }
+                        match callable.params() {
+                            Some(params) => {
+                                for param in params.iter().skip(args.len()) {
+                                    use ContextLessFuncParam::*;
+                                    match param {
+                                        DefaultValued(_, val) => {
+                                            args.push(val.clone());
+                                        }
+                                        _ => break,
+                                    };
+                                }
+
+                                if params.len() != args.len() {
+                                    let min_args = params
+                                        .iter()
+                                        .filter(|p| !p.is_default())
+                                        .collect::<Vec<_>>()
+                                        .len();
+
+                                    let max_args = params.len();
+
+                                    return if min_args == max_args {
+                                        Err(EvalError::WrongNumberOfArgs(
+                                            expr_ctx.pos,
+                                            min_args,
+                                            args.len(),
+                                            callable.name(&self.names),
+                                        ))
+                                    } else {
+                                        Err(EvalError::WrongNumberOfArgsBetween(
+                                            expr_ctx.pos,
+                                            min_args,
+                                            max_args,
+                                            args.len(),
+                                            callable.name(&self.names),
+                                        ))
+                                    };
+                                }
+                            }
+                            None => {
+                                if !args.is_empty() {
+                                    return Err(EvalError::WrongNumberOfArgs(
+                                        expr_ctx.pos,
+                                        0,
+                                        args.len(),
+                                        callable.name(&self.names),
+                                    ));
+                                }
+                            }
+                        };
 
                         return Ok(callable.call(&self, env, args)?);
                     }
@@ -130,7 +202,9 @@ impl Eval for Interpreter {
             Expr::Func(func_expr) => {
                 let func = LoxFunction::new(
                     func_expr.clone(),
-                    env.clone(), false
+                    env.clone(),
+                    false,
+                    func_expr.context_less_params(self, env)?,
                 );
 
                 let f = Value::Callable(CallableValue::Function(Rc::new(func)));
@@ -149,13 +223,17 @@ impl Eval for Interpreter {
                     if let Some(prop_val) = instance.get(get_expr.property.name) {
                         return Ok(prop_val);
                     } else {
-                        return Err(EvalError::UndefinedProperty(expr_ctx.pos, self.name(get_expr.property.name)));
+                        return Err(EvalError::UndefinedProperty(
+                            expr_ctx.pos,
+                            self.name(get_expr.property.name),
+                        ));
                     }
                 }
 
                 Err(EvalError::OnlyInstancesHaveProperties(
                     expr_ctx.pos,
-                    self.eval(env, &get_expr.object).unwrap().type_()))
+                    self.eval(env, &get_expr.object).unwrap().type_(),
+                ))
             }
             Expr::Set(set_expr) => {
                 let obj = self.eval(env, &set_expr.object)?;
@@ -166,7 +244,10 @@ impl Eval for Interpreter {
                     return Ok(val);
                 }
 
-                Err(EvalError::OnlyInstancesHaveProperties(expr_ctx.pos, self.eval(env, &set_expr.object).unwrap().type_()))
+                Err(EvalError::OnlyInstancesHaveProperties(
+                    expr_ctx.pos,
+                    self.eval(env, &set_expr.object).unwrap().type_(),
+                ))
             }
             Expr::This(this_expr) => {
                 if let Some(this) = self.lookup_variable(env, &this_expr.identifier) {
@@ -191,7 +272,7 @@ impl Eval for Interpreter {
                                 } else {
                                     return Err(EvalError::UndefinedProperty(
                                         expr_ctx.pos,
-                                        self.name(super_expr.method.name)
+                                        self.name(super_expr.method.name),
                                     ));
                                 }
                             }
@@ -206,12 +287,22 @@ impl Eval for Interpreter {
 }
 
 #[inline]
-fn arithmetic_op<F>(op_ctx: &BinaryOperatorCtx, a: &Value, b: &Value, operation: F) -> EvalResult<Value>
+fn arithmetic_op<F>(
+    op_ctx: &BinaryOperatorCtx,
+    a: &Value,
+    b: &Value,
+    operation: F,
+) -> EvalResult<Value>
 where
     F: Fn(&f64, &f64) -> Value,
 {
     match (a, b) {
         (Value::Number(a), Value::Number(b)) => Ok(operation(a, b)),
-        _ => Err(EvalError::UnexpectedBinaryOperatorOperands(op_ctx.pos.clone(), op_ctx.op.clone(), a.type_(), b.type_())),
+        _ => Err(EvalError::UnexpectedBinaryOperatorOperands(
+            op_ctx.pos.clone(),
+            op_ctx.op.clone(),
+            a.type_(),
+            b.type_(),
+        )),
     }
 }

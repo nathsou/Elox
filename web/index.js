@@ -2,11 +2,13 @@ import {
   run
 } from '../pkg/elox';
 import CodeFlask from 'codeflask';
-import dictionary_demo from '../demos/dictionary.elox';
+import map_demo from '../demos/map.elox';
 import fib_demo from '../demos/fib.elox';
 import inheritance_demo from '../demos/inheritance.elox';
 import primes_demo from '../demos/primes.elox';
 import linked_list_demo from '../demos/linked_list.elox';
+import math_demo from '../demos/math.elox';
+import prng_demo from '../demos/prng.elox';
 
 let messages = '';
 
@@ -34,11 +36,13 @@ const editor = new CodeFlask('#editor', {
 });
 
 const demos = {
+  PRNG: prng_demo,
   primes: primes_demo,
   fibonacci: fib_demo,
-  dictionary: dictionary_demo,
+  map: map_demo,
   inheritance: inheritance_demo,
-  linked_list: linked_list_demo
+  linked_list: linked_list_demo,
+  math: math_demo
 };
 
 async function loadDemo(uri) {

@@ -6,6 +6,7 @@ use super::{eval_result::EvalError, EvalResult};
 use crate::parser::{Identifier, IdentifierNames};
 use std::cell::RefCell;
 use std::rc::Rc;
+use super::lox_function::LoxFunctionParams;
 
 #[derive(Debug)]
 pub enum NativeValue {
@@ -19,7 +20,10 @@ impl NativeValue {
             return vec;
         }
 
-        panic!("could not convert native value '{:?}' into a NativeValue::Vector", self);
+        panic!(
+            "could not convert native value '{:?}' into a NativeValue::Vector",
+            self
+        );
     }
 }
 
@@ -40,8 +44,8 @@ impl LoxCallable for Clock {
         Err(EvalError::CouldNotGetTime())
     }
 
-    fn arity(&self) -> usize {
-        0
+    fn params(&self) -> LoxFunctionParams {
+        None
     }
 
     fn name(&self, names: &Rc<IdentifierNames>) -> String {

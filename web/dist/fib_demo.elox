@@ -7,7 +7,7 @@ fun fibonacci(n) {
 fun time(fn) {
     var t1 = clock();
     fn();
-    return (clock() - t1) * 1000; //ms
+    return (clock() - t1) * 1000; // ms
 }
 
 fun bench() {

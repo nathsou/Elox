@@ -146,8 +146,16 @@ impl std::fmt::Display for IdentifierUse {
 }
 
 impl IdentifierUse {
-    pub fn new(name: IdentifierHandle, use_handle: IdentifierUseHandle, pos: Position) -> IdentifierUse {
-        IdentifierUse { name, use_handle, pos }
+    pub fn new(
+        name: IdentifierHandle,
+        use_handle: IdentifierUseHandle,
+        pos: Position,
+    ) -> IdentifierUse {
+        IdentifierUse {
+            name,
+            use_handle,
+            pos,
+        }
     }
 }
 
@@ -278,24 +286,19 @@ impl<'a> Parser<'a> {
                         }
                         _ => {
                             return Err(ParserError::ExpectedMethodDeclarationInClass(
-                                self.pos,
-                                name.name,
+                                self.pos, name.name,
                             ))
                         }
                     }
                 }
 
                 if !self.consume(RightBrace)? {
-                    return Err(ParserError::ExpectedRightBraceAfterClassBody(
-                        self.pos,
-                    ));
+                    return Err(ParserError::ExpectedRightBraceAfterClassBody(self.pos));
                 }
 
                 return Ok(ClassDeclStmt::to_stmt(self.pos, name, superclass, methods));
             } else {
-                return Err(ParserError::ExpectedLeftBraceBeforeClassBody(
-                    self.pos,
-                ));
+                return Err(ParserError::ExpectedLeftBraceBeforeClassBody(self.pos));
             }
         } else {
             return Err(ParserError::ExpectedClassName(self.pos));
@@ -312,7 +315,12 @@ impl<'a> Parser<'a> {
             if !self.match_next(RightParen)? {
                 loop {
                     if let Some(param) = self.consume_identifier()? {
-                        params.push(param);
+                        if self.consume(Equal)? {
+                            let value = self.expression()?;
+                            params.push(FuncParam::DefaultValued(param, value))
+                        } else {
+                            params.push(FuncParam::Required(param));
+                        }
                     } else {
                         return Err(ParserError::ExpectedFuncParamName(self.pos));
                     }
@@ -324,24 +332,24 @@ impl<'a> Parser<'a> {
             }
 
             if !self.consume(RightParen)? {
-                return Err(ParserError::ExpectedRightParenAfterCallExpr(
-                    self.pos,
-                ));
+                return Err(ParserError::ExpectedRightParenAfterCallExpr(self.pos));
             }
 
             if !self.consume(LeftBrace)? {
-                return Err(ParserError::ExpectedLeftBraceBeforeFuncBody(
-                    self.pos,
-                ));
+                return Err(ParserError::ExpectedLeftBraceBeforeFuncBody(self.pos));
             }
 
             let body = ((self.block()?) as BlockStmt).stmts;
 
-            return Ok(FuncExpr::new(pos.clone(), name, params, body));
+            let params_opt = if !params.is_empty() {
+                Some(params)
+            } else {
+                None
+            };
+
+            return Ok(FuncExpr::new(pos, name, params_opt, body));
         } else {
-            Err(ParserError::ExpectedRightParenAfterCallExpr(
-                self.pos,
-            ))
+            Err(ParserError::ExpectedRightParenAfterCallExpr(self.pos))
         }
     }
 
@@ -350,7 +358,7 @@ impl<'a> Parser<'a> {
             return Ok(Some(IdentifierUse::new(
                 self.identifiers.by_name(&name),
                 self.identifiers.next_use_handle(),
-                self.pos
+                self.pos,
             )));
         }
 
@@ -382,10 +390,7 @@ impl<'a> Parser<'a> {
             return Ok(VarDeclStmt::to_stmt(identifier, initializer));
         } else {
             if let Some(Ok(tok)) = self.tokens.peek() {
-                return Err(ParserError::ExpectedVarName(
-                    self.pos,
-                    tok.lexeme.clone(),
-                ));
+                return Err(ParserError::ExpectedVarName(self.pos, tok.lexeme.clone()));
             } else {
                 return Err(ParserError::ExpectedStatement(self.pos));
             }
@@ -435,9 +440,7 @@ impl<'a> Parser<'a> {
         }
 
         if !self.consume(SemiColon)? {
-            return Err(ParserError::ExpectedSemiColonAfterReturnValue(
-                self.pos,
-            ));
+            return Err(ParserError::ExpectedSemiColonAfterReturnValue(self.pos));
         }
 
         Ok(ReturnStmt::to_stmt(value, self.pos))
@@ -461,9 +464,7 @@ impl<'a> Parser<'a> {
             }
 
             if !self.consume(SemiColon)? {
-                return Err(ParserError::ExpectedSemicolonAfterLoopCondition(
-                    self.pos,
-                ));
+                return Err(ParserError::ExpectedSemicolonAfterLoopCondition(self.pos));
             }
 
             let mut increment = None;
@@ -473,9 +474,7 @@ impl<'a> Parser<'a> {
             }
 
             if !self.consume(RightParen)? {
-                return Err(ParserError::ExpectedRightParenAfterForClauses(
-                    self.pos,
-                ));
+                return Err(ParserError::ExpectedRightParenAfterForClauses(self.pos));
             }
 
             let mut body = self.statement()?;
@@ -646,7 +645,9 @@ impl<'a> Parser<'a> {
             if let Some(right_val) = right_value {
                 match expr_ctx.expr {
                     Expr::Var(v) => return Ok(AssignExpr::new(self.pos, v.identifier, right_val)),
-                    Expr::Get(g) => return Ok(SetExpr::new(self.pos, g.property, g.object, right_val)),
+                    Expr::Get(g) => {
+                        return Ok(SetExpr::new(self.pos, g.property, g.object, right_val))
+                    }
                     Expr::Call(call_expr_ctx) => {
                         if let Expr::Get(access) = call_expr_ctx.callee.expr {
                             if access.property.name == Identifier::get() {
@@ -655,7 +656,11 @@ impl<'a> Parser<'a> {
                                     .next_with_handle(Identifier::set(), expr_ctx.pos);
                                 let mut args = call_expr_ctx.args;
                                 args.push(right_val);
-                                return Ok(CallExpr::new(self.pos, GetExpr::new(self.pos, set, access.object), args));
+                                return Ok(CallExpr::new(
+                                    self.pos,
+                                    GetExpr::new(self.pos, set, access.object),
+                                    args,
+                                ));
                             } else {
                                 return Err(ParserError::InvalidAssignmentTarget(self.pos));
                             }
@@ -850,9 +855,7 @@ impl<'a> Parser<'a> {
         }
 
         if !self.consume(RightParen)? {
-            return Err(ParserError::ExpectedRightParenAfterCallExpr(
-                self.pos,
-            ));
+            return Err(ParserError::ExpectedRightParenAfterCallExpr(self.pos));
         }
 
         Ok(CallExpr::new(self.pos, expr_ctx, args))
@@ -871,9 +874,7 @@ impl<'a> Parser<'a> {
         }
 
         if !self.consume(RightBracket)? {
-            return Err(ParserError::ExpectedRightParenAfterCallExpr(
-                self.pos,
-            ));
+            return Err(ParserError::ExpectedRightParenAfterCallExpr(self.pos));
         }
 
         Ok(CallExpr::new(self.pos, expr_ctx, args))
@@ -915,15 +916,14 @@ impl<'a> Parser<'a> {
             Fun => self.function_declaration(),
             This => Ok(ThisExpr::new(
                 self.pos,
-                self
-                    .identifiers
+                self.identifiers
                     .next_with_handle(Identifier::this(), next.pos),
             )),
             Super => {
                 if self.consume(Dot)? {
                     if let Some(method) = self.consume_identifier()? {
                         return Ok(SuperExpr::new(
-                            next.pos, 
+                            next.pos,
                             self.identifiers
                                 .next_with_handle(Identifier::super_(), next.pos),
                             method,

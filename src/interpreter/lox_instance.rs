@@ -1,15 +1,15 @@
-use super::lox_class::_LoxClass;
+use super::eval_result::EvalResult;
 use super::lox_callable::LoxCallable;
+use super::lox_class::_LoxClass;
 use super::lox_function::LoxFunction;
 use super::natives::NativeValue;
 use super::value::{CallableValue, Value};
-use crate::parser::IdentifierHandle;
 use super::Interpreter;
+use crate::parser::IdentifierHandle;
+use crate::scanner::token::Position;
 use fnv::FnvHashMap;
 use std::cell::RefCell;
 use std::rc::Rc;
-use super::eval_result::EvalResult;
-use crate::scanner::token::Position;
 
 pub type NativesMap = FnvHashMap<usize, NativeValue>;
 
@@ -68,7 +68,6 @@ impl LoxInstance {
         if let Some(method) = self.find_method(method_name) {
             return method.pos();
         }
-        
         None
     }
 
@@ -85,12 +84,16 @@ impl LoxInstance {
         None
     }
 
-    pub fn call(&self, method_name: IdentifierHandle, interpreter: &Interpreter, args: Vec<Value>) -> Option<EvalResult<Value>> {
+    pub fn call(
+        &self,
+        method_name: IdentifierHandle,
+        interpreter: &Interpreter,
+        args: Vec<Value>,
+    ) -> Option<EvalResult<Value>> {
         if let Some(method) = self.find_method(method_name) {
             let bound = method.bind(&self);
             return Some(bound.call(interpreter, &bound.env, args));
         }
-        
         None
     }
 

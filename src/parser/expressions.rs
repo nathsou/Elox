@@ -1,7 +1,13 @@
 use super::statements::Stmt;
-use super::IdentifierUse;
+use super::{IdentifierHandle, IdentifierUse};
+use crate::interpreter::lox_function::LoxFunctionParams;
+use crate::interpreter::value::Value;
+use crate::interpreter::{
+    environment::Environment, eval::Eval, eval_result::EvalResult, Interpreter,
+};
 use crate::scanner::token::{token_type::TokenType, Position};
 use std::fmt;
+use std::rc::Rc;
 
 #[derive(Clone)]
 pub enum Literal {
@@ -64,7 +70,9 @@ pub enum BinaryOperator {
 impl fmt::Display for BinaryOperator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use BinaryOperator::*;
-        write!(f, "{}", 
+        write!(
+            f,
+            "{}",
             match self {
                 Minus => "-",
                 Plus => "+",
@@ -122,14 +130,16 @@ pub struct BinaryExpr {
 impl BinaryExpr {
     pub fn new(pos: Position, left: ExprCtx, operator: BinaryOperator, right: ExprCtx) -> ExprCtx {
         ExprCtx::new(
-            Expr::Binary(Box::new(
-                BinaryExpr {
-                    left,
-                    operator: BinaryOperatorCtx { pos: pos.clone(), op: operator },
-                    right,
-                })),
-                pos,
-            )
+            Expr::Binary(Box::new(BinaryExpr {
+                left,
+                operator: BinaryOperatorCtx {
+                    pos: pos.clone(),
+                    op: operator,
+                },
+                right,
+            })),
+            pos,
+        )
     }
 }
 
@@ -141,7 +151,9 @@ pub enum UnaryOperator {
 
 impl fmt::Display for UnaryOperator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", 
+        write!(
+            f,
+            "{}",
             match self {
                 UnaryOperator::Minus => "-",
                 UnaryOperator::Bang => "!",
@@ -239,17 +251,92 @@ impl CallExpr {
 }
 
 #[derive(Clone)]
+pub enum FuncParam {
+    Required(IdentifierUse),
+    DefaultValued(IdentifierUse, ExprCtx),
+    Rest(IdentifierUse),
+}
+
+#[derive(Clone)]
+pub enum ContextLessFuncParam {
+    Required(IdentifierHandle),
+    DefaultValued(IdentifierHandle, Value),
+    Rest(IdentifierHandle),
+}
+
+#[derive(Clone)]
 pub struct FuncExpr {
     pub name: Option<IdentifierUse>,
-    pub params: Vec<IdentifierUse>,
+    pub params: Option<Vec<FuncParam>>,
     pub body: Vec<Stmt>,
     pub pos: Position,
 }
 
+impl FuncParam {
+    pub fn identifier(&self) -> &IdentifierUse {
+        use FuncParam::*;
+        match self {
+            Required(name) | DefaultValued(name, _) | Rest(name) => name,
+        }
+    }
+
+    pub fn to_context_less(
+        &self,
+        interpreter: &Interpreter,
+        env: &Environment,
+    ) -> EvalResult<ContextLessFuncParam> {
+        use ContextLessFuncParam::*;
+        match self {
+            FuncParam::Required(id) => Ok(Required(id.name)),
+            FuncParam::DefaultValued(id, expr) => {
+                Ok(DefaultValued(id.name, interpreter.eval(env, &expr)?))
+            }
+            FuncParam::Rest(id) => Ok(Rest(id.name)),
+        }
+    }
+}
+
+impl ContextLessFuncParam {
+    pub fn is_default(&self) -> bool {
+        if let ContextLessFuncParam::DefaultValued(_, _) = self {
+            true
+        } else {
+            false
+        }
+    } 
+}
+
 impl FuncExpr {
-    pub fn new(pos: Position, name: Option<IdentifierUse>, params: Vec<IdentifierUse>, body: Vec<Stmt>) -> ExprCtx {
-        let expr = Expr::Func(FuncExpr { name, params, body, pos });
+    pub fn new(
+        pos: Position,
+        name: Option<IdentifierUse>,
+        params: Option<Vec<FuncParam>>,
+        body: Vec<Stmt>,
+    ) -> ExprCtx {
+        let expr = Expr::Func(FuncExpr {
+            name,
+            params,
+            body,
+            pos,
+        });
         ExprCtx::new(expr, pos)
+    }
+
+    pub fn context_less_params(
+        &self,
+        interpreter: &Interpreter,
+        env: &Environment,
+    ) -> EvalResult<LoxFunctionParams> {
+        if let Some(params) = &self.params {
+            Ok(Some(Rc::new(
+                params
+                    .iter()
+                    .map(|fp| fp.to_context_less(interpreter, env))
+                    .collect::<EvalResult<Vec<ContextLessFuncParam>>>()?,
+            )))
+        } else {
+            Ok(None)
+        }
     }
 }
 

@@ -13,7 +13,7 @@ module.exports = {
     },
     module: {
         rules: [{
-            test: /\.elox$/i,
+            test: /\.(elox)$/i,
             use: [{
                 loader: 'file-loader',
                 options: {

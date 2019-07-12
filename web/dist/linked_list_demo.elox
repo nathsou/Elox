@@ -87,7 +87,7 @@ class List {
     return new_list;
   }
 
-  reduce(fn, start) {
+  reduce(fn, start = 0) {
     var prev = start;
 
     this.forEach(fun (val) {
@@ -116,7 +116,7 @@ fun time(fn) {
     return (clock() - t1) * 1000; //ms
 }
 
-fun range(from, to, step) {
+fun range(from, to, step = 1) {
 
   var rng = List();
   
@@ -131,7 +131,7 @@ fun range(from, to, step) {
 
 
 fun sum(list) {
-  return list.reduce(fun(prev, curr) { return prev + curr; }, 0);
+  return list.reduce(fun(prev, curr) { return prev + curr; });
 }
 
 var nums = range(1, 10, 1).map(fun(n) { return n * n; }); 

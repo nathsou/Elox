@@ -1,0 +1,60 @@
+
+fun indexOf(array, val) {
+    var len = array.length();
+    for (var i = 0; i < len; i++) {
+      if (array[i] == val) return i;
+    }
+  
+    return nil;
+}
+  
+class Map {
+    init() {
+        this.keys = Array();
+        this.values = Array();
+    }
+  
+    #set(key, val) {
+        var idx = indexOf(this.keys, key);
+        if (idx == nil) {
+          this.keys.push(key);
+          this.values.push(val);
+        } else {
+          this.keys[idx] = key;
+          this.values[idx] = val;
+        }
+    }
+  
+    #get(key) {
+        var idx = indexOf(this.keys, key);
+        if (idx == nil) return nil;
+        return this.values[idx];
+    }
+
+    size() {
+        return this.keys.length();
+    }
+  
+    #str() {
+        var entries = "[";
+        var size = this.size();
+        for (var i = 0; i < size; i++) {
+          entries += this.keys[i] + "->" + this.values[i];
+          if (i != size - 1) entries += ", ";
+        }
+        
+        return entries + "]";
+    }
+}
+  
+var map = Map();
+  
+map["alice"] = 20;
+map["bob"] = 18;
+map["charlie"] = "hoy!";
+map["dan"] = "hey!";
+map["bob"] = true;
+
+print map;
+
+  

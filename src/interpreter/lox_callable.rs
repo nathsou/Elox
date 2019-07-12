@@ -1,3 +1,4 @@
+use super::lox_function::LoxFunctionParams;
 use super::value::Value;
 use super::Environment;
 use super::EvalResult;
@@ -13,7 +14,7 @@ pub trait LoxCallable: std::fmt::Debug {
         args: Vec<Value>,
     ) -> EvalResult<Value>;
 
-    fn arity(&self) -> usize;
+    fn params(&self) -> LoxFunctionParams;
 
-    fn name(&self, ctx: &Rc<IdentifierNames>) -> String;
+    fn name(&self, names: &Rc<IdentifierNames>) -> String;
 }

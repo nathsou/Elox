@@ -1,6 +1,6 @@
 use super::IdentifierHandle;
 use super::Position;
-use crate::scanner::scanner_result::{ScannerError, ErrorPosition};
+use crate::scanner::scanner_result::{ErrorPosition, ScannerError};
 use std::fmt;
 
 pub type ParserResult<T> = Result<T, ParserError>;
