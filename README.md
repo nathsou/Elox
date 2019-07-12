@@ -43,16 +43,16 @@ $ npm run start
 
 ## Todo
 
-- [] Arrow functions
-- [] standard library
- - [] Implement [traits](https://www.wikiwand.com/en/Trait_(computer_programming))
- - [] Write a compiler targetting wasm directly
- - [] Optional type annotations used by a static type checker
- - [] Function overloading
- - [] 'const' keyword
-- [] Replace 'nil' with Option\<T> or other? => match and enums?
-- [] bundler to import other elox files
-- [] extern code execution (C or JS)
+- [ ] Arrow functions
+- [ ] standard library
+ - [ ] Implement [traits](https://www.wikiwand.com/en/Trait_(computer_programming))
+ - [ ] Write a compiler targetting wasm directly
+ - [ ] Optional type annotations used by a static type checker
+ - [ ] Function overloading
+ - [ ] 'const' keyword
+- [ ] Replace 'nil' with Option\<T> or other? => match and enums?
+- [ ] bundler to import other elox files
+- [ ] extern code execution (C or JS)
 
 ## Examples
 
