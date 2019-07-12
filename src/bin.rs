@@ -17,7 +17,7 @@ fn main() {
         1 => lox.run_prompt(),
         2 => lox.run_file(Path::new(&args[1])),
         _ => {
-            println!("Usage: lox [script]");
+            println!("Usage: elox [script]");
             process::exit(64);
         }
     }

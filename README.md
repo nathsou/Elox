@@ -4,6 +4,8 @@ Elox for Extended-lox, is a superset of the lox toy language from Bob Nystrom's 
 
 It is an interpreted, dynamically typed, objected oriented programming language.
 
+You can test it [here](https://nathsou.github.io/Elox/web/dist/index.html)
+
 Its main additions to lox are :
 
 - Native Arrays
@@ -56,7 +58,7 @@ $ npm run start
 
 ## Examples
 
-Demos are available in the /demos folder and can be run online.
+Demos are available in the /demos folder and can be [run online](https://nathsou.github.io/Elox/web/dist/index.html).
 
 ```javascript
 // Pseudo Random Number Generator
