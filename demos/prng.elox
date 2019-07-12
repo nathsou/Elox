@@ -14,7 +14,7 @@ class PRNG {
 }
  
 var prng = PRNG();
-var nums = Array();
+var nums = [];
 
 for (var i = 0; i < 10; i++) {
    nums.push(prng.next());

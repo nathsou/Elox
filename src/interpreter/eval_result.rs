@@ -14,11 +14,12 @@ pub enum EvalError {
     ValueNotCallable(Position, String),
     WrongNumberOfArgs(Position, usize, usize, String),
     WrongNumberOfArgsBetween(Position, usize, usize, usize, String),
-    CouldNotGetTime(),
+    CouldNotGetTime(Position),
     OnlyInstancesHaveProperties(Position, String),
     UndefinedProperty(Position, String),
     SuperclassMustBeAClass(Position, String),
     ToStringMethodMustReturnAString(Position, String, String),
+    ArrayIndexOutOfBounds(Position, usize, usize),
     Return(Value),
 }
 
@@ -42,12 +43,25 @@ impl fmt::Display for EvalError {
             }
             EvalError::WrongNumberOfArgs(_, expected, got, name) => {
                 let s = if *expected != 1 { "s" } else { "" };
-                write!(f, "'{}' expected {} argument{}, got {}", name, expected, s, got)
+                write!(
+                    f,
+                    "'{}' expected {} argument{}, got {}",
+                    name, expected, s, got
+                )
             }
             EvalError::WrongNumberOfArgsBetween(_, min, max, got, name) => {
-                write!(f, "'{}' expected between {} and {} arguments, got {}", name, min, max, got)
+                let max = if max == &usize::max_value() {
+                    "infinity".into()
+                } else {
+                    format!("{}", max)
+                };
+                write!(
+                    f,
+                    "'{}' expected between {} and {} arguments, got {}",
+                    name, min, max, got
+                )
             }
-            EvalError::CouldNotGetTime() => write!(f, "Could not get time"),
+            EvalError::CouldNotGetTime(_) => write!(f, "Could not get time"),
             EvalError::Return(_) => unreachable!(),
             EvalError::OnlyInstancesHaveProperties(_, typ) => {
                 write!(f, "Only instances have properties, found: '{}'", typ)
@@ -60,6 +74,11 @@ impl fmt::Display for EvalError {
                 f,
                 "#str trait method must return a string, got '{}' in class '{}'",
                 return_type, class_name
+            ),
+            EvalError::ArrayIndexOutOfBounds(_, idx, len) => write!(
+                f,
+                "Index out of bounds: tried to access value at index {} on an array of length {}",
+                idx, len
             ),
         }
     }
@@ -78,8 +97,9 @@ impl ErrorPosition for EvalError {
             | OnlyInstancesHaveProperties(pos, _)
             | UndefinedProperty(pos, _)
             | SuperclassMustBeAClass(pos, _)
-            | ToStringMethodMustReturnAString(pos, _, _) => pos,
-            CouldNotGetTime() => panic!(format!("{}", self)),
+            | ToStringMethodMustReturnAString(pos, _, _)
+            | ArrayIndexOutOfBounds(pos, _, _)
+            | CouldNotGetTime(pos) => pos,
             Return(_) => unreachable!(),
         }
     }

@@ -10,8 +10,8 @@ fun indexOf(array, val) {
   
 class Map {
     init() {
-        this.keys = Array();
-        this.values = Array();
+        this.keys = [];
+        this.values = [];
     }
   
     #set(key, val) {

@@ -13,7 +13,7 @@ use crate::scanner::token::Position;
 use std::rc::Rc;
 
 pub type NativeFunction =
-    Fn(&LoxFunction, &Interpreter, &Environment, Vec<Value>) -> EvalResult<Value>;
+    Fn(&LoxFunction, &Interpreter, &Environment, Vec<Value>, Position) -> EvalResult<Value>;
 
 pub type NativeMethod = Fn(
     &LoxInstance,
@@ -22,6 +22,7 @@ pub type NativeMethod = Fn(
     &Interpreter,
     &Environment,
     Vec<Value>,
+    Position,
 ) -> EvalResult<Value>;
 
 #[derive(Clone)]
@@ -33,11 +34,20 @@ pub enum Func {
 
 pub type LoxFunctionParams = Option<Rc<Vec<ContextLessFuncParam>>>;
 
+fn has_rest_param(params: &LoxFunctionParams) -> bool {
+    if let Some(params) = params {
+        params.iter().any(|p| p.is_rest())
+    } else {
+        false
+    }
+}
+
 pub struct LoxFunction {
     pub func: Func,
     pub name: Option<IdentifierHandle>,
     pub env: Environment,
     pub is_initializer: bool,
+    has_rest_param: bool,
     params: LoxFunctionParams,
 }
 
@@ -49,10 +59,11 @@ impl LoxFunction {
         params: LoxFunctionParams,
     ) -> LoxFunction {
         LoxFunction {
-            params,
             func: Func::Expr(func),
             env,
             is_initializer,
+            has_rest_param: has_rest_param(&params),
+            params,
             name: None,
         }
     }
@@ -68,7 +79,8 @@ impl LoxFunction {
             func: Func::Native(func),
             env,
             is_initializer,
-            params: params,
+            has_rest_param: has_rest_param(&params),
+            params,
             name: Some(name),
         }
     }
@@ -84,7 +96,8 @@ impl LoxFunction {
             func: Func::NativeMethod(method),
             env,
             is_initializer,
-            params: params,
+            has_rest_param: has_rest_param(&params),
+            params,
             name: Some(name),
         }
     }
@@ -131,9 +144,10 @@ impl LoxCallable for LoxFunction {
         interpreter: &Interpreter,
         env: &Environment,
         args: Vec<Value>,
+        call_pos: Position,
     ) -> EvalResult<Value> {
         match &self.func {
-            Func::Native(callable) => (callable)(&self, interpreter, env, args),
+            Func::Native(callable) => (callable)(&self, interpreter, env, args, call_pos),
             Func::NativeMethod(method) => {
                 let this = self
                     .env
@@ -142,7 +156,7 @@ impl LoxCallable for LoxFunction {
                     .into_instance()
                     .unwrap();
                 if let Some(ref mut natives) = this.instance.borrow_mut().natives {
-                    return (method)(&this, natives, &self, interpreter, env, args);
+                    return (method)(&this, natives, &self, interpreter, env, args, call_pos);
                 }
                 panic!("Could not fetch natives from native method");
             }
@@ -205,6 +219,10 @@ impl LoxCallable for LoxFunction {
         };
 
         names[handle].clone()
+    }
+
+    fn has_rest_param(&self) -> bool {
+        self.has_rest_param
     }
 }
 

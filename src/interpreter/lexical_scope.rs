@@ -1,7 +1,7 @@
 use super::Interpreter;
 use super::Stmt;
 use crate::parser::{
-    expressions::{Expr, ExprCtx, FuncExpr, VarExpr, FuncParam},
+    expressions::{Expr, ExprCtx, FuncExpr, FuncParam, VarExpr},
     Identifier, IdentifierHandle, IdentifierNames, IdentifierUse,
 };
 use crate::scanner::scanner_result::ErrorPosition;
@@ -370,6 +370,13 @@ impl LexicallyScoped for ExprCtx {
                     return Ok(());
                 }
             },
+            Expr::ArrayDeclExpr(array_decl) => {
+                for val in &array_decl.values {
+                    val.resolve(resolver)?;
+                }
+
+                Ok(())
+            }
         }
     }
 }

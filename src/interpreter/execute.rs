@@ -7,7 +7,6 @@ use super::value::{CallableValue, Value};
 use crate::interpreter::eval_result::{EvalError, EvalResult};
 use crate::interpreter::Interpreter;
 use crate::parser::expressions::{Expr, ExprCtx};
-use crate::parser::pretty_printer::PrettyPrinter;
 use crate::parser::statements::Stmt;
 use crate::parser::{Identifier, IdentifierHandle};
 use fnv::FnvHashMap;
@@ -22,7 +21,7 @@ impl Exec for Interpreter {
         match stmt {
             Stmt::Print(ps) => {
                 let val = self.eval(env, &ps.value)?;
-                (self.host.print)(val.to_str(self)?);
+                (self.host.print)(val.to_str(self, ps.pos)?);
                 Ok(())
             }
             Stmt::Expr(expr_stmt) => {

@@ -1,5 +1,6 @@
 use super::environment::Environment;
 use super::eval_result::{EvalError, EvalResult};
+use super::lox_array::new_elox_array;
 use super::lox_function::LoxFunction;
 use super::value::{CallableValue, Value};
 use crate::interpreter::Interpreter;
@@ -19,7 +20,7 @@ impl Eval for Interpreter {
     fn eval(&self, env: &Environment, expr_ctx: &ExprCtx) -> EvalResult<Value> {
         match &expr_ctx.expr {
             Expr::Literal(literal) => match literal {
-                Literal::Number(n) => Ok(Value::Number(n.clone())),
+                Literal::Number(ref n) => Ok(Value::Number(*n)),
                 Literal::String(s) => Ok(Value::String(s.clone())),
                 Literal::Nil => Ok(Value::Nil),
                 Literal::Boolean(b) => Ok(Value::Boolean(b.clone())),
@@ -58,8 +59,8 @@ impl Eval for Interpreter {
                         (Value::Number(a), Value::Number(b)) => Ok(Value::Number(a + b)),
                         (_, _) => Ok(Value::String(format!(
                             "{}{}",
-                            a.to_str(&self)?,
-                            b.to_str(&self)?
+                            a.to_str(&self, expr.left.pos)?,
+                            b.to_str(&self, expr.right.pos)?
                         ))),
                     },
                     BinaryOperator::Slash => {
@@ -143,43 +144,58 @@ impl Eval for Interpreter {
                 match callee {
                     Value::Callable(callable_value) => {
                         let callable = callable_value.into_callable();
+                        let has_rest_param = callable.has_rest_param();
                         match callable.params() {
                             Some(params) => {
-                                for param in params.iter().skip(args.len()) {
-                                    use ContextLessFuncParam::*;
-                                    match param {
-                                        DefaultValued(_, val) => {
-                                            args.push(val.clone());
-                                        }
-                                        _ => break,
-                                    };
-                                }
+                                // default values
+                                if params.len() != args.len() || has_rest_param {
+                                    for param in params.iter().skip(args.len()) {
+                                        use ContextLessFuncParam::*;
+                                        match param {
+                                            DefaultValued(_, val) => {
+                                                args.push(val.clone());
+                                            }
+                                            _ => break,
+                                        };
+                                    }
 
-                                if params.len() != args.len() {
+                                    // if rest: push the params into a native Array
+                                    if has_rest_param && args.len() >= params.len() {
+                                        // a rest parameter is always the last one
+                                        let rest_params = args.split_off(params.len() - 1);
+                                        args.push(new_elox_array(rest_params, self));
+                                    } else if has_rest_param && args.len() == params.len() - 1 {
+                                        args.push(new_elox_array(vec![], self));
+                                    }
+
                                     let min_args = params
                                         .iter()
-                                        .filter(|p| !p.is_default())
+                                        .filter(|p| p.is_required())
                                         .collect::<Vec<_>>()
                                         .len();
 
-                                    let max_args = params.len();
+                                    let max_args = if has_rest_param {
+                                        usize::max_value()
+                                    } else {
+                                        params.len()
+                                    };
 
-                                    return if min_args == max_args {
-                                        Err(EvalError::WrongNumberOfArgs(
+                                    if min_args == max_args && !has_rest_param {
+                                        return Err(EvalError::WrongNumberOfArgs(
                                             expr_ctx.pos,
                                             min_args,
                                             args.len(),
                                             callable.name(&self.names),
-                                        ))
-                                    } else {
-                                        Err(EvalError::WrongNumberOfArgsBetween(
+                                        ));
+                                    } else if args.len() < min_args || args.len() > max_args {
+                                        return Err(EvalError::WrongNumberOfArgsBetween(
                                             expr_ctx.pos,
                                             min_args,
                                             max_args,
                                             args.len(),
                                             callable.name(&self.names),
-                                        ))
-                                    };
+                                        ));
+                                    }
                                 }
                             }
                             None => {
@@ -194,7 +210,7 @@ impl Eval for Interpreter {
                             }
                         };
 
-                        return Ok(callable.call(&self, env, args)?);
+                        return Ok(callable.call(&self, env, args, expr_ctx.pos)?);
                     }
                     _ => return Err(EvalError::ValueNotCallable(expr_ctx.pos, callee.type_())),
                 }
@@ -281,6 +297,14 @@ impl Eval for Interpreter {
                 }
 
                 Ok(Value::Nil)
+            }
+            Expr::ArrayDeclExpr(array_decl) => {
+                let values = array_decl
+                    .values
+                    .iter()
+                    .map(|val| self.eval(env, &val))
+                    .collect::<EvalResult<Vec<_>>>()?;
+                Ok(new_elox_array(values, self))
             }
         }
     }

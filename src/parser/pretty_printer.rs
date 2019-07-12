@@ -22,6 +22,7 @@ impl PrettyPrinter for Expr {
             Expr::Set(s) => s.pretty_print(names),
             Expr::This(_) => "this".into(),
             Expr::Super(_) => "super".into(),
+            Expr::ArrayDeclExpr(a) => a.pretty_print(names),
         }
     }
 }
@@ -159,6 +160,18 @@ impl PrettyPrinter for SetExpr {
             self.object.expr.pretty_print(names),
             self.property.pretty_print(names),
             self.value.expr.pretty_print(names)
+        )
+    }
+}
+
+impl PrettyPrinter for ArrayDeclExpr {
+    fn pretty_print(&self, names: &IdentifierNames) -> String {
+        format!(
+            "(ArrayDeclExpr {:?})",
+            self.values
+                .iter()
+                .map(|val| val.expr.pretty_print(names))
+                .collect::<Vec<_>>()
         )
     }
 }

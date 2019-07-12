@@ -1,8 +1,7 @@
 
 class Sieve {
     init() {
-        this.primes = Array();
-        this.primes.push(2);
+        this.primes = [2];
     }
 
     isPrime(n) {

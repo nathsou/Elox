@@ -12,11 +12,12 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub type NativesMap = FnvHashMap<usize, NativeValue>;
+pub type InstanceFields = FnvHashMap<IdentifierHandle, Value>;
 
 #[derive(Debug)]
 pub struct _Instance {
     mold: Rc<_LoxClass>,
-    fields: FnvHashMap<IdentifierHandle, Value>,
+    fields: InstanceFields,
     pub natives: Option<NativesMap>,
 }
 
@@ -26,6 +27,34 @@ pub struct LoxInstance {
 }
 
 impl LoxInstance {
+    // class must be defined in the global scope
+    pub fn instantiate_global(
+        class_name: IdentifierHandle,
+        natives: Option<NativesMap>,
+        interpreter: &Interpreter,
+    ) -> LoxInstance {
+        //FIXME: Throw errors instead of panicing
+        if let Some(class) = interpreter.lookup_global(class_name) {
+            let class = class
+                .into_callable_value()
+                .expect("Tried to instantiate a non-callable value")
+                .into_class()
+                .expect("Tried to instantiate");
+            return LoxInstance {
+                instance: Rc::new(RefCell::new(_Instance {
+                    mold: Rc::clone(&class.mold),
+                    fields: FnvHashMap::default(),
+                    natives,
+                })),
+            };
+        }
+
+        panic!(
+            "could not instantiate: {} not found in the given environment",
+            interpreter.name(class_name)
+        );
+    }
+
     pub fn new(mold: Rc<_LoxClass>) -> LoxInstance {
         LoxInstance {
             instance: Rc::new(RefCell::new(_Instance {
@@ -64,6 +93,18 @@ impl LoxInstance {
         self.instance.borrow().mold.identifier
     }
 
+    pub fn get_native(self, handle: usize) -> Option<NativeValue> {
+        if let Some(natives) = &self.instance.borrow().natives {
+            if let Some(native) = natives.get(&handle) {
+                return Some(native.clone());
+            } else {
+                return None;
+            }
+        }
+
+        None
+    }
+
     pub fn method_pos(&self, method_name: IdentifierHandle) -> Option<Position> {
         if let Some(method) = self.find_method(method_name) {
             return method.pos();
@@ -89,10 +130,11 @@ impl LoxInstance {
         method_name: IdentifierHandle,
         interpreter: &Interpreter,
         args: Vec<Value>,
+        call_pos: Position,
     ) -> Option<EvalResult<Value>> {
         if let Some(method) = self.find_method(method_name) {
             let bound = method.bind(&self);
-            return Some(bound.call(interpreter, &bound.env, args));
+            return Some(bound.call(interpreter, &bound.env, args, call_pos));
         }
         None
     }

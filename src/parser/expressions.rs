@@ -38,6 +38,7 @@ pub enum Expr {
     Set(Box<SetExpr>),
     This(ThisExpr),
     Super(SuperExpr),
+    ArrayDeclExpr(Box<ArrayDeclExpr>),
 }
 
 #[derive(Clone)]
@@ -297,13 +298,21 @@ impl FuncParam {
 }
 
 impl ContextLessFuncParam {
-    pub fn is_default(&self) -> bool {
-        if let ContextLessFuncParam::DefaultValued(_, _) = self {
+    pub fn is_required(&self) -> bool {
+        if let ContextLessFuncParam::Required(_) = self {
             true
         } else {
             false
         }
-    } 
+    }
+
+    pub fn is_rest(&self) -> bool {
+        if let ContextLessFuncParam::Rest(_) = self {
+            true
+        } else {
+            false
+        }
+    }
 }
 
 impl FuncExpr {
@@ -393,5 +402,16 @@ pub struct ThisExpr {
 impl ThisExpr {
     pub fn new(pos: Position, identifier: IdentifierUse) -> ExprCtx {
         ExprCtx::new(Expr::This(ThisExpr { identifier }), pos)
+    }
+}
+
+#[derive(Clone)]
+pub struct ArrayDeclExpr {
+    pub values: Vec<ExprCtx>,
+}
+
+impl ArrayDeclExpr {
+    pub fn new(pos: Position, values: Vec<ExprCtx>) -> ExprCtx {
+        ExprCtx::new(Expr::ArrayDeclExpr(Box::new(ArrayDeclExpr { values })), pos)
     }
 }

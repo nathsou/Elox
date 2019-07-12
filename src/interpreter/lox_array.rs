@@ -1,4 +1,4 @@
-use super::eval_result::EvalResult;
+use super::eval_result::{EvalError, EvalResult};
 use super::lox_class::LoxClass;
 use super::lox_function::LoxFunction;
 use super::lox_instance::{LoxInstance, NativesMap};
@@ -6,14 +6,29 @@ use super::natives::NativeValue;
 use super::value::Value;
 use super::Environment;
 use super::Interpreter;
+use crate::parser::expressions::ContextLessFuncParam::*;
 use crate::parser::{Identifier, IdentifierHandlesGenerator};
+use crate::scanner::token::Position;
 use fnv::FnvHashMap;
 use std::cell::RefCell;
 use std::rc::Rc;
-use crate::parser::expressions::ContextLessFuncParam::*;
 
 fn vec_handle() -> usize {
     0
+}
+
+pub fn new_elox_array(values: Vec<Value>, interpreter: &Interpreter) -> Value {
+    let mut natives = FnvHashMap::default();
+    natives.insert(
+        vec_handle(),
+        NativeValue::Vector(Rc::new(RefCell::new(values))),
+    );
+
+    Value::Instance(LoxInstance::instantiate_global(
+        Identifier::array(),
+        Some(natives),
+        interpreter,
+    ))
 }
 
 pub fn create_elox_array_class(
@@ -31,14 +46,22 @@ pub fn create_elox_array_class(
                  _func: &LoxFunction,
                  _interpreter: &Interpreter,
                  _env: &Environment,
-                 _args: Vec<Value>| {
-                    natives.insert(vec_handle(), NativeValue::Vector(RefCell::new(Vec::new())));
+                 args: Vec<Value>,
+                 _call_pos: Position| {
+                    let capacity = args[0].clone().into_number().unwrap() as usize;
+                    natives.insert(
+                        vec_handle(),
+                        NativeValue::Vector(Rc::new(RefCell::new(Vec::with_capacity(capacity)))),
+                    );
                     Ok(Value::Instance(this.clone()))
                 },
             ),
             env.clone(),
             true,
-            None,
+            Some(Rc::new(vec![DefaultValued(
+                identifiers.by_name("capacity"),
+                Value::Number(0f64),
+            )])),
             Identifier::init(),
         )),
     );
@@ -54,18 +77,21 @@ pub fn create_elox_array_class(
                  _func: &LoxFunction,
                  _interpreter: &Interpreter,
                  _env: &Environment,
-                 args: Vec<Value>| {
+                 args: Vec<Value>,
+                 _call_pos: Position| {
                     let mut values = natives.get(&vec_handle()).unwrap().into_vec().borrow_mut();
-                    values.push(args[0].clone());
+                    let pushed_values = args[0].clone().into_instance().unwrap();
+                    let pushed_values = pushed_values.get_native(vec_handle()).unwrap();
+                    let mut pushed_values = pushed_values.into_vec().borrow_mut();
+
+                    values.append(&mut pushed_values);
 
                     Ok(Value::Instance(this.clone()))
                 },
             ),
             env.clone(),
             false,
-            Some(Rc::new(vec![
-                Required(identifiers.by_name("value"))
-            ])),
+            Some(Rc::new(vec![Rest(identifiers.by_name("values"))])),
             push_handle,
         )),
     );
@@ -81,12 +107,20 @@ pub fn create_elox_array_class(
                  _func: &LoxFunction,
                  _interpreter: &Interpreter,
                  _env: &Environment,
-                 args: Vec<Value>| {
+                 args: Vec<Value>,
+                 call_pos: Position| {
                     let values = natives.get(&vec_handle()).unwrap().into_vec().borrow();
 
                     match args[0] {
                         Value::Number(n) => {
                             let idx = n.floor() as usize;
+                            if idx >= values.len() {
+                                return Err(EvalError::ArrayIndexOutOfBounds(
+                                    call_pos,
+                                    idx,
+                                    values.len(),
+                                ));
+                            }
                             if n < 0f64 || idx >= values.len() || n % 1f64 != 0f64 {
                                 return Ok(Value::Nil);
                             }
@@ -99,9 +133,7 @@ pub fn create_elox_array_class(
             ),
             env.clone(),
             false,
-            Some(Rc::new(vec![
-                Required(identifiers.by_name("idx"))
-            ])),
+            Some(Rc::new(vec![Required(identifiers.by_name("idx"))])),
             get_handle,
         )),
     );
@@ -117,7 +149,8 @@ pub fn create_elox_array_class(
                  _func: &LoxFunction,
                  _interpreter: &Interpreter,
                  _env: &Environment,
-                 args: Vec<Value>| {
+                 args: Vec<Value>,
+                 _call_pos: Position| {
                     let mut values = natives.get(&vec_handle()).unwrap().into_vec().borrow_mut();
 
                     match args[0] {
@@ -155,7 +188,8 @@ pub fn create_elox_array_class(
                  _func: &LoxFunction,
                  _interpreter: &Interpreter,
                  _env: &Environment,
-                 _args: Vec<Value>| {
+                 _args: Vec<Value>,
+                 _call_pos: Position| {
                     let values = natives.get(&vec_handle()).unwrap().into_vec().borrow();
 
                     Ok(Value::Number(values.len() as f64))
@@ -177,12 +211,13 @@ pub fn create_elox_array_class(
                  _func: &LoxFunction,
                  interpreter: &Interpreter,
                  _env: &Environment,
-                 _args: Vec<Value>| {
+                 _args: Vec<Value>,
+                 call_pos: Position| {
                     let values = natives.get(&vec_handle()).unwrap().into_vec().borrow();
 
                     let to_str = values
                         .iter()
-                        .map(|val| val.to_str(interpreter))
+                        .map(|val| val.to_str(interpreter, call_pos))
                         .collect::<EvalResult<Vec<String>>>();
 
                     match to_str {

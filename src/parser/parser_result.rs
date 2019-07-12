@@ -32,60 +32,50 @@ pub enum ParserError {
     ExpectedMethodDeclarationInClass(Position, IdentifierHandle),
     ExpectedSuperclassName(Position),
     ExpectedSuperclassMethodName(Position),
+    RestParameterMustBeLast(Position),
+    OptionalParamCannotPrecedeRequiredParam(Position),
 }
 
 impl fmt::Display for ParserError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use ParserError::*;
         match self {
-            ParserError::ScannerError(e) => write!(f, "{}", e),
-            ParserError::UnmatchingClosingParen(_) => write!(f, "Expected ')' after expression"),
-            ParserError::ExpectedStatement(_) => write!(f, "Expected a statement"),
-            ParserError::ExpectedSemicolonAfterExpr(_) => {
-                write!(f, "Expected ';' after expression")
-            }
-            ParserError::UnexpectedToken(_, t) => write!(f, "Unexpected token: '{}'", t),
-            ParserError::ExpectedVarName(_, t) => write!(f, "Expected variable name, got: '{}'", t),
-            ParserError::InvalidAssignmentTarget(_) => write!(f, "Invalid assignment target"),
-            ParserError::ExpectedRightBraceAfterBlock(_) => write!(f, "Expected '}}' after block"),
-            ParserError::ExpectedLeftParenAfterIf(_) => write!(f, "Expected '(' after 'if'"),
-            ParserError::ExpectedRightParenAfterIf(_) => write!(f, "Expected ')' after 'if'"),
-            ParserError::ExpectedLeftParenAfterLoop(_) => write!(f, "Expected '(' after loop"),
-            ParserError::ExpectedRightParenAfterLoop(_) => write!(f, "Expected ')' after loop"),
-            ParserError::ExpectedRightParenAfterCallExpr(_) => {
-                write!(f, "Expected ')' after call arguments")
-            }
-            ParserError::ExpectedSemicolonAfterLoopCondition(_) => {
+            ScannerError(e) => write!(f, "{}", e),
+            UnmatchingClosingParen(_) => write!(f, "Expected ')' after expression"),
+            ExpectedStatement(_) => write!(f, "Expected a statement"),
+            ExpectedSemicolonAfterExpr(_) => write!(f, "Expected ';' after expression"),
+            UnexpectedToken(_, t) => write!(f, "Unexpected token: '{}'", t),
+            ExpectedVarName(_, t) => write!(f, "Expected variable name, got: '{}'", t),
+            InvalidAssignmentTarget(_) => write!(f, "Invalid assignment target"),
+            ExpectedRightBraceAfterBlock(_) => write!(f, "Expected '}}' after block"),
+            ExpectedLeftParenAfterIf(_) => write!(f, "Expected '(' after 'if'"),
+            ExpectedRightParenAfterIf(_) => write!(f, "Expected ')' after 'if'"),
+            ExpectedLeftParenAfterLoop(_) => write!(f, "Expected '(' after loop"),
+            ExpectedRightParenAfterLoop(_) => write!(f, "Expected ')' after loop"),
+            ExpectedRightParenAfterCallExpr(_) => write!(f, "Expected ')' after call arguments"),
+            ExpectedSemicolonAfterLoopCondition(_) => {
                 write!(f, "Expected ';' after loop condition")
             }
-            ParserError::ExpectedRightParenAfterForClauses(_) => {
-                write!(f, "Expected ')' after for clauses")
-            }
-            ParserError::ExpectedFuncParamName(_) => {
-                write!(f, "Expected parameter name for function")
-            }
-            ParserError::ExpectedLeftBraceBeforeFuncBody(_) => {
-                write!(f, "Expected '{{' before function body")
-            }
-            ParserError::ExpectedSemiColonAfterReturnValue(_) => {
-                write!(f, "Expected ';' after return value")
-            }
-            ParserError::ExpectedClassName(_) => write!(f, "Expected class name"),
-            ParserError::ExpectedLeftBraceBeforeClassBody(_) => {
-                write!(f, "Expected '{{' before class body")
-            }
-            ParserError::ExpectedRightBraceAfterClassBody(_) => {
-                write!(f, "Expected '}}' after class body")
-            }
-            ParserError::ExpectedPropertyNameAfterDot(_) => {
-                write!(f, "Expected property name after '.'")
-            }
-            ParserError::ExpectedMethodDeclarationInClass(_, class_id) => {
+            ExpectedRightParenAfterForClauses(_) => write!(f, "Expected ')' after for clauses"),
+            ExpectedFuncParamName(_) => write!(f, "Expected parameter name for function"),
+            ExpectedLeftBraceBeforeFuncBody(_) => write!(f, "Expected '{{' before function body"),
+            ExpectedSemiColonAfterReturnValue(_) => write!(f, "Expected ';' after return value"),
+            ExpectedClassName(_) => write!(f, "Expected class name"),
+            ExpectedLeftBraceBeforeClassBody(_) => write!(f, "Expected '{{' before class body"),
+            ExpectedRightBraceAfterClassBody(_) => write!(f, "Expected '}}' after class body"),
+            ExpectedPropertyNameAfterDot(_) => write!(f, "Expected property name after '.'"),
+            ExpectedMethodDeclarationInClass(_, class_id) => {
                 write!(f, "Expected method declaration in class: {}", class_id)
             }
-            ParserError::ExpectedSuperclassName(_) => write!(f, "Expected superclass name"),
-            ParserError::ExpectedSuperclassMethodName(_) => {
-                write!(f, "Expected superclass method name")
+            ExpectedSuperclassName(_) => write!(f, "Expected superclass name"),
+            ExpectedSuperclassMethodName(_) => write!(f, "Expected superclass method name"),
+            RestParameterMustBeLast(_) => {
+                write!(f, "A rest parameter must be last in a parameter list")
             }
+            OptionalParamCannotPrecedeRequiredParam(_) => write!(
+                f,
+                "An optional parameter cannot precede a required parameter"
+            ),
         }
     }
 }
@@ -96,30 +86,32 @@ impl ErrorPosition for ParserError {
 
         match self {
             ScannerError(e) => e.position(),
-            UnmatchingClosingParen(pos) => pos,
-            ExpectedStatement(pos) => pos,
-            ExpectedSemicolonAfterExpr(pos) => pos,
-            UnexpectedToken(pos, _) => pos,
-            ExpectedVarName(pos, _) => pos,
-            InvalidAssignmentTarget(pos) => pos,
-            ExpectedRightBraceAfterBlock(pos) => pos,
-            ExpectedLeftParenAfterIf(pos) => pos,
-            ExpectedRightParenAfterIf(pos) => pos,
-            ExpectedLeftParenAfterLoop(pos) => pos,
-            ExpectedRightParenAfterLoop(pos) => pos,
-            ExpectedSemicolonAfterLoopCondition(pos) => pos,
-            ExpectedRightParenAfterForClauses(pos) => pos,
-            ExpectedRightParenAfterCallExpr(pos) => pos,
-            ExpectedFuncParamName(pos) => pos,
-            ExpectedLeftBraceBeforeFuncBody(pos) => pos,
-            ExpectedSemiColonAfterReturnValue(pos) => pos,
-            ExpectedClassName(pos) => pos,
-            ExpectedLeftBraceBeforeClassBody(pos) => pos,
-            ExpectedRightBraceAfterClassBody(pos) => pos,
-            ExpectedPropertyNameAfterDot(pos) => pos,
-            ExpectedMethodDeclarationInClass(pos, _) => pos,
-            ExpectedSuperclassName(pos) => pos,
-            ExpectedSuperclassMethodName(pos) => pos,
+            UnmatchingClosingParen(pos)
+            | ExpectedStatement(pos)
+            | ExpectedSemicolonAfterExpr(pos)
+            | UnexpectedToken(pos, _)
+            | ExpectedVarName(pos, _)
+            | InvalidAssignmentTarget(pos)
+            | ExpectedRightBraceAfterBlock(pos)
+            | ExpectedLeftParenAfterIf(pos)
+            | ExpectedRightParenAfterIf(pos)
+            | ExpectedLeftParenAfterLoop(pos)
+            | ExpectedRightParenAfterLoop(pos)
+            | ExpectedSemicolonAfterLoopCondition(pos)
+            | ExpectedRightParenAfterForClauses(pos)
+            | ExpectedRightParenAfterCallExpr(pos)
+            | ExpectedFuncParamName(pos)
+            | ExpectedLeftBraceBeforeFuncBody(pos)
+            | ExpectedSemiColonAfterReturnValue(pos)
+            | ExpectedClassName(pos)
+            | ExpectedLeftBraceBeforeClassBody(pos)
+            | ExpectedRightBraceAfterClassBody(pos)
+            | ExpectedPropertyNameAfterDot(pos)
+            | ExpectedMethodDeclarationInClass(pos, _)
+            | ExpectedSuperclassName(pos)
+            | ExpectedSuperclassMethodName(pos)
+            | OptionalParamCannotPrecedeRequiredParam(pos)
+            | RestParameterMustBeLast(pos) => pos,
         }
     }
 }

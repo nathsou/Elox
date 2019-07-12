@@ -51,6 +51,15 @@ impl<'a> Scanner<'a> {
         Ok(tokens)
     }
 
+    fn consume(&mut self, matching_char: &char) -> bool {
+        if self.source.peek() == Some(matching_char) {
+            self.advance();
+            true
+        } else {
+            false
+        }
+    }
+
     fn match_next(
         &mut self,
         matching_char: &char,
@@ -133,7 +142,17 @@ impl<'a> Scanner<'a> {
             Some('[') => Ok(self.token(LeftBracket)),
             Some(']') => Ok(self.token(RightBracket)),
             Some(',') => Ok(self.token(Comma)),
-            Some('.') => Ok(self.token(Dot)),
+            Some('.') => {
+                if self.consume(&'.') {
+                    if self.consume(&'.') {
+                        Ok(self.token(DotDotDot))
+                    } else {
+                        Err(ScannerError::UnexpectedCharacter(self.pos, 'c'))
+                    }
+                } else {
+                    Ok(self.token(Dot))
+                }
+            }
             Some('-') => Ok(self.match_minus_assignment_shorthand()),
             Some('+') => Ok(self.match_plus_assignment_shorthand()),
             Some(';') => Ok(self.token(SemiColon)),

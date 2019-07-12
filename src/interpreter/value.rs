@@ -5,6 +5,7 @@ use super::lox_function::LoxFunction;
 use super::lox_instance::LoxInstance;
 use super::Interpreter;
 use crate::parser::Identifier;
+use crate::scanner::token::Position;
 use std::rc::Rc;
 
 #[derive(Clone, Debug)]
@@ -51,6 +52,14 @@ impl Value {
         None
     }
 
+    pub fn into_number(self) -> Option<f64> {
+        if let Value::Number(nb) = self {
+            return Some(nb);
+        }
+
+        None
+    }
+
     pub fn type_(&self) -> String {
         match &self {
             Value::Boolean(_) => "boolean".into(),
@@ -74,6 +83,14 @@ impl CallableValue {
             CallableValue::Function(f) => f,
             CallableValue::Native(n) => n,
         }
+    }
+
+    pub fn into_class(self) -> Option<Rc<LoxClass>> {
+        if let CallableValue::Class(c) = self {
+            return Some(Rc::clone(&c));
+        }
+
+        None
     }
 }
 
@@ -101,14 +118,18 @@ impl PartialEq for Value {
 }
 
 impl Value {
-    pub fn to_str(&self, interpreter: &Interpreter) -> EvalResult<std::string::String> {
+    pub fn to_str(
+        &self,
+        interpreter: &Interpreter,
+        call_pos: Position,
+    ) -> EvalResult<std::string::String> {
         match self {
             Value::Nil => Ok(format!("nil")),
             Value::Boolean(b) => Ok(format!("{}", b)),
             Value::Number(nb) => Ok(format!("{}", nb)),
             Value::String(s) => Ok(format!("{}", s)),
             Value::Instance(inst) => {
-                if let Some(res) = inst.call(Identifier::str_(), interpreter, vec![]) {
+                if let Some(res) = inst.call(Identifier::str_(), interpreter, vec![], call_pos) {
                     match res {
                         Ok(Value::String(s)) => Ok(s),
                         Ok(val) => Err(EvalError::ToStringMethodMustReturnAString(

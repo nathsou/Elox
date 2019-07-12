@@ -1,16 +1,17 @@
-use super::lox_callable::{LoxCallable};
+use super::lox_callable::LoxCallable;
+use super::lox_function::LoxFunctionParams;
 use super::value::Value;
 use super::Environment;
 use super::Interpreter;
 use super::{eval_result::EvalError, EvalResult};
 use crate::parser::{Identifier, IdentifierNames};
+use crate::scanner::token::Position;
 use std::cell::RefCell;
 use std::rc::Rc;
-use super::lox_function::LoxFunctionParams;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum NativeValue {
-    Vector(RefCell<Vec<Value>>),
+    Vector(Rc<RefCell<Vec<Value>>>),
 }
 
 #[allow(irrefutable_let_patterns)]
@@ -36,12 +37,13 @@ impl LoxCallable for Clock {
         interpreter: &Interpreter,
         _env: &Environment,
         _args: Vec<Value>,
+        call_pos: Position,
     ) -> EvalResult<Value> {
         if let Some(now) = (interpreter.host.clock)() {
             return Ok(Value::Number(now));
         }
 
-        Err(EvalError::CouldNotGetTime())
+        Err(EvalError::CouldNotGetTime(call_pos))
     }
 
     fn params(&self) -> LoxFunctionParams {
@@ -50,5 +52,9 @@ impl LoxCallable for Clock {
 
     fn name(&self, names: &Rc<IdentifierNames>) -> String {
         names[Identifier::clock()].clone()
+    }
+
+    fn has_rest_param(&self) -> bool {
+        false
     }
 }

@@ -1,6 +1,6 @@
 
-fun call_with_one(fn = fun(x) { return x; }) {
-    print fn(1);
+fun test(b = 1, ...a) {
+  print b + ", " + a;
 }
 
-call_with_one();
+test();

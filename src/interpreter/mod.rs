@@ -71,6 +71,10 @@ impl Interpreter {
         res
     }
 
+    pub fn lookup_global(&self, name: IdentifierHandle) -> Option<Value> {
+        self.global.get(0, name)
+    }
+
     pub fn assign_variable(
         &self,
         env: &Environment,

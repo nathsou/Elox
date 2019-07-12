@@ -33,6 +33,9 @@ pub enum TokenType {
     SlashEqual,
     PercentEqual,
 
+    // 3 chars
+    DotDotDot,
+
     // Literals
     Identifier(String),
     String(String),

@@ -29,11 +29,12 @@ impl ExprStmt {
 #[derive(Clone)]
 pub struct PrintStmt {
     pub value: ExprCtx,
+    pub pos: Position,
 }
 
 impl PrintStmt {
-    pub fn to_stmt(value: ExprCtx) -> Stmt {
-        Stmt::Print(PrintStmt { value })
+    pub fn to_stmt(pos: Position, value: ExprCtx) -> Stmt {
+        Stmt::Print(PrintStmt { value, pos })
     }
 }
 

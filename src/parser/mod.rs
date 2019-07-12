@@ -311,24 +311,54 @@ impl<'a> Parser<'a> {
 
         if self.consume(LeftParen)? {
             let mut params = Vec::new();
+            let mut has_rest_param = false;
+            let mut idx = 0;
+            let mut first_optional_idx = usize::max_value();
+            let mut last_required_idx = 0;
 
             if !self.match_next(RightParen)? {
                 loop {
                     if let Some(param) = self.consume_identifier()? {
                         if self.consume(Equal)? {
                             let value = self.expression()?;
+                            if idx < first_optional_idx {
+                                first_optional_idx = idx;
+                            }
                             params.push(FuncParam::DefaultValued(param, value))
                         } else {
+                            if idx > last_required_idx {
+                                last_required_idx = idx;
+                            }
                             params.push(FuncParam::Required(param));
+                        }
+                    } else if self.consume(DotDotDot)? {
+                        if let Some(param) = self.consume_identifier()? {
+                            has_rest_param = true;
+                            if idx < first_optional_idx {
+                                first_optional_idx = idx;
+                            }
+                            params.push(FuncParam::Rest(param));
+                        } else {
+                            return Err(ParserError::ExpectedFuncParamName(self.pos));
                         }
                     } else {
                         return Err(ParserError::ExpectedFuncParamName(self.pos));
                     }
 
+                    idx += 1;
+
                     if !self.consume(Comma)? {
                         break;
+                    } else if has_rest_param {
+                        return Err(ParserError::RestParameterMustBeLast(self.pos));
                     }
                 }
+            }
+
+            if last_required_idx > first_optional_idx {
+                return Err(ParserError::OptionalParamCannotPrecedeRequiredParam(
+                    self.pos,
+                ));
             }
 
             if !self.consume(RightParen)? {
@@ -582,7 +612,7 @@ impl<'a> Parser<'a> {
         let value = self.expression()?;
 
         if self.consume(SemiColon)? {
-            return Ok(PrintStmt::to_stmt(value));
+            return Ok(PrintStmt::to_stmt(self.pos, value));
         }
 
         Err(ParserError::ExpectedSemicolonAfterExpr(self.pos))
@@ -932,6 +962,23 @@ impl<'a> Parser<'a> {
                 }
 
                 Err(ParserError::ExpectedSuperclassMethodName(next.pos))
+            }
+            LeftBracket => {
+                // array inline expression
+                let mut values = vec![];
+                while !self.match_next(RightBracket)? {
+                    values.push(self.expression()?);
+                    if !self.consume(Comma)? {
+                        break;
+                    }
+                }
+
+                // TODO: Custom error
+                if !self.consume(RightBracket)? {
+                    return Err(ParserError::ExpectedRightParenAfterCallExpr(self.pos));
+                }
+
+                Ok(ArrayDeclExpr::new(self.pos, values))
             }
             _ => Err(ParserError::UnexpectedToken(next.pos, next.lexeme)),
         }
