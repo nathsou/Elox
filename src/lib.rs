@@ -1,12 +1,12 @@
 extern crate wasm_bindgen;
 
+mod elox;
 mod interpreter;
-mod lox;
 mod parser;
 mod scanner;
 
 use crate::interpreter::host::Host;
-use lox::Lox;
+use elox::Elox;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(raw_module = "../web/index.js")]
@@ -28,6 +28,6 @@ pub fn run(source: &str) {
         clock: Box::new(|| Some(clock())),
     };
 
-    let mut lox = Lox::new(host);
+    let mut lox = Elox::new(host);
     lox.run(source);
 }

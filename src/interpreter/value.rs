@@ -99,6 +99,7 @@ impl PartialEq for CallableValue {
         match (self, other) {
             (&CallableValue::Function(ref a), &CallableValue::Function(ref b)) => Rc::ptr_eq(a, b),
             (&CallableValue::Class(ref a), &CallableValue::Class(ref b)) => Rc::ptr_eq(a, b),
+            (&CallableValue::Native(ref a), &CallableValue::Native(ref b)) => Rc::ptr_eq(a, b),
             _ => false,
         }
     }
@@ -112,6 +113,7 @@ impl PartialEq for Value {
             (&Value::Boolean(a), &Value::Boolean(b)) => a == b,
             (&Value::Nil, &Value::Nil) => true,
             (&Value::Callable(ref a), &Value::Callable(ref b)) => a == b,
+            (&Value::Instance(ref a), &Value::Instance(ref b)) => a == b,
             _ => false,
         }
     }

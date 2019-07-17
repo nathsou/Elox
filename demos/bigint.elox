@@ -1,0 +1,81 @@
+
+class BigInt {
+
+   init(n = 0) {
+       this.multiples = this._toBase(n);
+   }
+
+   _fromMultiples(multiples = []) {
+       var n = BigInt();
+       n.multiples = multiples;
+       return n;
+   }
+   
+
+   clone() {
+       var copy = [];
+       for (var i = 0; i < this.multiples.length(); i++) {
+           copy.push(this.multiples[i]);
+       }
+
+       var n = BigInt();
+       n.multiples = copy;
+
+       return n;
+   }
+
+   add(other) {
+      var res = [];
+      var a = this.multiples;
+      var b = other.multiples;
+      if (a.length() < b.length()) {
+          var tmp = a;
+          a = b;
+          b = a;
+      }
+
+      var carry = 0;
+
+      for (var i = 0; i < a.length(); i++) {
+          var val_b = 0;
+          if (i < b.length()) val_b = b[i];
+          
+          var sum = a[i] + val_b + carry;
+          // print a[i] + " + " + val_b + " + " + carry + " = " + sum;
+          var rem = sum % 10;
+          if (sum != rem) { carry = 1; } else { carry = 0; }
+          res.push(rem);
+      }
+
+      if (carry != 0) res.push(1);
+
+      return this._fromMultiples(res);
+   }
+
+    _toBase(n, base = 10) {
+        var multiples = [];
+        
+        while (n >= 1) {
+            multiples.push(this._floor(n % base));
+            n /= base;
+        }  
+        
+        return multiples;
+    } 
+
+    _floor(x) {
+        return x - x % 1;
+    } 
+
+    #str() {
+        var str = "";
+        for (var i = this.multiples.length() - 1; i >= 0; i--) {
+            str += this.multiples[i];
+        }
+
+        return str;
+    }
+
+}
+
+print BigInt(1234).add(BigInt(9678));

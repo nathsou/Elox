@@ -1,13 +1,7 @@
-
-fun integer_power(a, exponent) {
-    if (exponent == 0) return 1;
-
-    var p = a;
-    for (var i = 1; i < exponent; i = i + 1) {
-        p = p * a;
-    }
-
-    return p;
+fun integer_power(a, n) {
+  if (n == 0) return 1;
+  if (n % 2 == 0) return integer_power(a * a, n / 2);
+  return a * integer_power(a * a, (n - 1) / 2);
 }
 
 fun log(x) {

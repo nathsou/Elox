@@ -13,14 +13,14 @@ use std::path::Path;
 use std::process;
 use std::rc::Rc;
 
-pub struct Lox {
+pub struct Elox {
     had_error: bool,
     host: Rc<Host>,
 }
 
-impl Lox {
-    pub fn new(host: Host) -> Lox {
-        Lox {
+impl Elox {
+    pub fn new(host: Host) -> Elox {
+        Elox {
             had_error: false,
             host: Rc::new(host),
         }

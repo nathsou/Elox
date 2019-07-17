@@ -1,0 +1,20 @@
+
+fun floor(x) {
+  return x - x % 1;
+} 
+
+fun modPow(b, n, m) {
+  var res = 1;
+  
+  while (n > 0) {
+    if (floor(n % 2) == 1) {
+      res = (res * b) % m;
+    }
+    n /= 2;
+    b = (b * b) % m;
+  }  
+   
+  return res;
+}
+
+print modPow(3, 1000, 7);

@@ -21,6 +21,10 @@ class List {
     this._length = 0;
   }
 
+  insert(idx, value) {
+    
+  }
+
   push(value) {
     var node = ListNode(value);
     if (this.head == nil) {

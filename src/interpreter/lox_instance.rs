@@ -146,3 +146,9 @@ impl LoxInstance {
             .insert(prop, value.clone());
     }
 }
+
+impl PartialEq for LoxInstance {
+    fn eq(&self, other: &LoxInstance) -> bool {
+        Rc::ptr_eq(&self.instance, &other.instance)
+    }
+}
