@@ -132,7 +132,7 @@ impl LoxFunction {
 
     pub fn pos(&self) -> Option<Position> {
         match &self.func {
-            Func::Expr(func) => Some(func.pos.clone()),
+            Func::Expr(func) => Some(func.pos),
             _ => None, // Native functions don't have positions
         }
     }

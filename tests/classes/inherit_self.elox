@@ -1,0 +1,2 @@
+
+class Self < Self { } // !expect runtime error: Class 'Self' cannot inherit from itself

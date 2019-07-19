@@ -1,0 +1,5 @@
+fun add(a, b = 0) {
+    return a + b;
+}
+
+add(1, 2, 3); // !expect syntax error: 'add' expected between 1 and 2 arguments, got 3

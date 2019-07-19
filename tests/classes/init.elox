@@ -1,0 +1,11 @@
+
+class WithInitializer {
+    init(arg) {
+        this.arg = arg;
+    }
+}
+
+var wi = WithInitializer("elox");
+
+print wi; // !expect: <instance WithInitializer>
+print wi.arg; // !expect: elox

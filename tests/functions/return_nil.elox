@@ -1,0 +1,11 @@
+
+fun iReturnNil() {
+
+}
+
+fun iReturnNilToo() {
+    return nil;
+}
+
+print iReturnNil(); // !expect: nil
+print iReturnNilToo(); // !expect: nil

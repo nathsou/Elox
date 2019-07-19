@@ -1,0 +1,29 @@
+
+class PopulatedArea {
+    init(name, population) {
+        this.name = name;
+        this.population = population;
+    }
+
+    name() {
+        return this.name;
+    }
+
+    population() {
+        return this.population;
+    }
+
+    format() {
+        return this.name + " has " + this.population + " inhabitants";
+    }
+}
+
+class City < PopulatedArea {
+    format() {
+        return "The city " + super.format();
+    }
+}
+
+var colmar = City("Colmar", 70284);
+
+print colmar.format(); // !expect: The city Colmar has 70284 inhabitants

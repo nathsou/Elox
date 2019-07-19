@@ -23,7 +23,7 @@ impl Eval for Interpreter {
                 Literal::Number(ref n) => Ok(Value::Number(*n)),
                 Literal::String(s) => Ok(Value::String(s.clone())),
                 Literal::Nil => Ok(Value::Nil),
-                Literal::Boolean(b) => Ok(Value::Boolean(b.clone())),
+                Literal::Boolean(b) => Ok(Value::Boolean(*b)),
             },
             Expr::Grouping(sub_expr) => self.eval(env, &sub_expr.deref().expression),
             Expr::Unary(sub_expr) => {
@@ -218,7 +218,7 @@ impl Eval for Interpreter {
             Expr::Func(func_expr) => {
                 let func = LoxFunction::new(
                     func_expr.clone(),
-                    env.clone(),
+                    env.clone(), // inexpensive clone
                     false,
                     func_expr.context_less_params(self, env)?,
                 );

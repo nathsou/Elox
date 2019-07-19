@@ -25,7 +25,7 @@ impl Environment {
         let current = InnerEnv {
             values: FnvHashMap::default(),
             parent: if let Some(p) = parent {
-                Some(p.clone())
+                Some(p.clone()) // inexpensive clone
             } else {
                 None
             },
@@ -69,10 +69,8 @@ impl Environment {
         let current = self.current.borrow();
 
         if depth == 0 {
-            if current.values.contains_key(&identifier) {
-                if let Some(value) = current.values.get(&identifier) {
-                    return Some(value.clone());
-                }
+            if let Some(value) = current.values.get(&identifier) {
+                return Some(value.clone()); // inexpensive clone
             }
         } else {
             if let Some(parent) = &current.parent {

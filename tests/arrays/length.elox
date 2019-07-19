@@ -1,0 +1,17 @@
+
+var a = [];
+
+print a.length; // !expect: <function length>
+print a.length(); // !expect: 0
+
+a.push(3);
+
+print a.length(); // !expect: 1
+
+for (var i = 0; i < 5; i++) a.push(i);
+
+print a.length(); // !expect: 6
+
+a = [1, 2, 3];
+
+print a.length(); // !expect: 3

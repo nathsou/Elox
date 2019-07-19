@@ -1,0 +1,6 @@
+
+var a = "" + Array();
+var b = "" + [];
+
+print a == b; // !expect: true
+print b == "[]"; // !expect: true

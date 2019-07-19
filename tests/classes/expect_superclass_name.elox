@@ -1,0 +1,2 @@
+
+class Base < { } // !expect runtime error: Expected superclass name

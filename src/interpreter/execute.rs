@@ -59,8 +59,10 @@ impl Exec for Interpreter {
                 Ok(())
             }
             Stmt::While(while_stmt) => {
+                use std::ops::Deref;
+                let body = (&while_stmt.body).deref();
                 while (self.eval(env, &while_stmt.condition)?).is_truthy() {
-                    self.exec(env, &while_stmt.body)?;
+                    self.exec(env, body)?;
                 }
 
                 Ok(())
@@ -79,7 +81,7 @@ impl Exec for Interpreter {
                 if let Some(parent_class) = &class_decl.superclass {
                     let val = self.eval(
                         env,
-                        &ExprCtx::new(Expr::Var(parent_class.clone()), class_decl.pos.clone()),
+                        &ExprCtx::new(Expr::Var(parent_class.clone()), class_decl.pos),
                     )?;
                     let type_ = val.type_();
                     if let Some(callable) = &val.into_callable_value() {
@@ -89,16 +91,13 @@ impl Exec for Interpreter {
                             }
                             _ => {
                                 return Err(EvalError::SuperclassMustBeAClass(
-                                    class_decl.pos.clone(),
+                                    class_decl.pos,
                                     type_,
                                 ))
                             }
                         }
                     } else {
-                        return Err(EvalError::SuperclassMustBeAClass(
-                            class_decl.pos.clone(),
-                            type_,
-                        ));
+                        return Err(EvalError::SuperclassMustBeAClass(class_decl.pos, type_));
                     }
                 }
 
@@ -118,7 +117,7 @@ impl Exec for Interpreter {
                     FnvHashMap::default();
 
                 for method in &class_decl.methods {
-                    let name_handle = method.name.unwrap();
+                    let name_handle = method.name.unwrap(); // anonymous methods caught by the parser
                     let func = LoxFunction::new(
                         method.clone(),
                         environment.clone(),

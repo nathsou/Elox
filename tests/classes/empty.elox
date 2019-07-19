@@ -1,0 +1,4 @@
+class Empty {}
+
+print Empty; // !expect: <class Empty>
+print Empty(); // !expect: <instance Empty>

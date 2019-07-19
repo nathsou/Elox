@@ -1,0 +1,24 @@
+fun f(a = 1, ...b) {
+    return [a, b];
+}
+
+print f(); // !expect: [1, []]
+print f([3]); // !expect: [[3], []]
+print f(nil, []); // !expect: [nil, [[]]]
+print f(nil, 1); // !expect: [nil, [1]]
+print f("hey", 1, 2, 3, 4); // !expect: [hey, [1, 2, 3, 4]]
+
+fun callWithOne(fn = fun(x) { print x; }) {
+    fn(1);
+}
+
+callWithOne(); // !expect: 1
+callWithOne(fun(val) { print "got: " + val; }); // !expect: got: 1
+
+fun add(a, b = 0) {
+    return a + b;
+}
+
+print add(7, 3); // !expect: 10
+print add(3); // !expect: 3
+print add(); // !expect syntax error: 'add' expected between 1 and 2 arguments, got 0

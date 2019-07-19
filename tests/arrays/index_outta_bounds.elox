@@ -1,0 +1,4 @@
+
+var a = [1, 2, 3];
+
+a[100]; // !expect runtime error: Index out of bounds: tried to access value at index 100 on an array of length 3

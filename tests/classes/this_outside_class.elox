@@ -1,0 +1,6 @@
+
+fun f() {
+    return this;
+}
+
+f(); // !expect runtime error: Cannot use the 'this' keyword outside of a class

@@ -1,0 +1,38 @@
+
+class Person {
+    init(name, age, city) {
+        this.name = name;
+        this.age = age;
+        this.city = city;
+    }
+
+    adult() {
+        return this.age >= 18; // outside north america
+    }
+
+    teenager() {
+        return this.age >= 13 and this.age <= 19;
+    }
+    
+    child() {
+        return this.age <= 12;
+    }
+
+    #str() {
+        var category = nil;
+
+        if (this.adult()) {
+            category = "an adult";
+        } else if (this.teenager()) {
+            category = "a teenager";
+        } else if (this.child()) {
+            category = "a child";
+        }
+
+        return "My name is " + this.name +  " I am " + category + " living in " + this.city;
+    }
+}
+
+var me = Person("Nathan", 20, "Champaign, IL");
+
+print me; // !expect: My name is Nathan I am an adult living in Champaign, IL

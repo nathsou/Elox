@@ -1,16 +1,14 @@
-mod elox;
-mod interpreter;
-mod parser;
-mod scanner;
+extern crate elox;
 
-use crate::elox::Elox;
-use interpreter::host::Host;
+use crate::elox::interpreter::host::Host;
+use crate::elox::runner::interp::EloxInterpreter;
+use crate::elox::runner::EloxFileAndPromptRunner;
 use std::env;
 use std::path::Path;
 use std::process;
 
 fn main() {
-    let mut elox = Elox::new(Host::default());
+    let mut elox = EloxInterpreter::new(Host::default());
     let args: Vec<String> = env::args().collect();
 
     match args.len() {

@@ -1,0 +1,8 @@
+
+class NotSuper {
+    init() {
+        super.init();
+    }
+}
+
+NotSuper(); // !expect runtime error: Cannot use 'super' in class 'NotSuper' which has no superclass

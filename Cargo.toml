@@ -1,6 +1,6 @@
 [package]
 name = "elox"
-version = "0.1.6"
+version = "0.1.7"
 authors = ["nathsou <nathsou@users.noreply.github.com>"]
 edition = "2018"
 
@@ -10,7 +10,7 @@ name = "elox"
 crate-type = ["cdylib", "rlib"]
 
 [[bin]]
-path = "src/bin.rs"
+path = "src/bin/interpreter.rs"
 name = "elox"
 
 [dependencies]

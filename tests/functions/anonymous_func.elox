@@ -1,0 +1,5 @@
+
+var sq = fun(x) { return x * x; };
+
+print sq(7); // !expect: 49
+print sq; // !expect: <function anonymous>

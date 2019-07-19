@@ -1,0 +1,14 @@
+
+class Base {
+    whoami() {
+        return "Ya Basic!";
+    }
+}
+
+class Super < Base {
+    whoami() {
+        return super.whoami() + ", No I am Forkin' duper cool";
+    }
+}
+
+print Super().whoami(); // !expect: Ya Basic!, No I am Forkin' duper cool

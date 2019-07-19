@@ -1,12 +1,13 @@
 extern crate wasm_bindgen;
 
-mod elox;
-mod interpreter;
-mod parser;
-mod scanner;
+pub mod interpreter;
+pub mod parser;
+pub mod runner;
+pub mod scanner;
+pub mod vm;
 
 use crate::interpreter::host::Host;
-use elox::Elox;
+use runner::{interp::EloxInterpreter, EloxRunner};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(raw_module = "../web/index.js")]
@@ -28,6 +29,8 @@ pub fn run(source: &str) {
         clock: Box::new(|| Some(clock())),
     };
 
-    let mut lox = Elox::new(host);
-    lox.run(source);
+    let mut elox = EloxInterpreter::new(host);
+    if let Err(err) = elox.run(source) {
+        elox.throw_error(err);
+    }
 }
