@@ -1,15 +1,2 @@
 
-fun time(fn) {
-    var t1 = clock();
-    fn();
-    return (clock() - t1) * 1000; // ms
-}
-
-fun test() {
-  var i = 0;
-  while (i < 1000000) {
-    i = i + 1;
-  }
-}
-
-print time(test);
+"hey " + "elox" + "!";

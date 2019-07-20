@@ -8,7 +8,7 @@ pub type EvalResult<T> = Result<T, EvalError>;
 
 #[derive(Debug)]
 pub enum EvalError {
-    UnexpectedUnaryOperatorOperand(Position, UnaryOperator, Value),
+    UnexpectedUnaryOperatorOperand(Position, UnaryOperator, String),
     UnexpectedBinaryOperatorOperands(Position, BinaryOperator, String, String),
     UndefinedVariable(Position, String),
     ValueNotCallable(Position, String),
@@ -26,11 +26,10 @@ pub enum EvalError {
 impl fmt::Display for EvalError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            EvalError::UnexpectedUnaryOperatorOperand(_, op, val) => write!(
+            EvalError::UnexpectedUnaryOperatorOperand(_, op, type_) => write!(
                 f,
                 "Unexpected operand type for operator: '{}' found '{}', expected a number",
-                op,
-                val.type_()
+                op, type_,
             ),
             EvalError::UndefinedVariable(_, id) => write!(f, "Undefined variable: '{}'", id),
             EvalError::UnexpectedBinaryOperatorOperands(_, op, a, b) => write!(

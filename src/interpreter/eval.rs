@@ -37,7 +37,7 @@ impl Eval for Interpreter {
                             Err(EvalError::UnexpectedUnaryOperatorOperand(
                                 expr.right.pos,
                                 UnaryOperator::Minus,
-                                val,
+                                val.type_(),
                             ))
                         }
                     }

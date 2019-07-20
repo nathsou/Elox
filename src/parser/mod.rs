@@ -215,6 +215,10 @@ impl<'a> Parser<'a> {
         Ok(stmts)
     }
 
+    pub fn pos(&self) -> Position {
+        self.pos
+    }
+
     fn consume(&mut self, token_type: TokenType) -> ParserResult<bool> {
         if self.peek_token_type()? == token_type {
             self.next();

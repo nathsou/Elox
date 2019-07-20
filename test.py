@@ -15,9 +15,9 @@ TESTS_DIR = ROOT_DIR + "/tests"
 ELOX_INTERP_PATH = ROOT_DIR + "/target/release/elox"
 
 OUTPUT_EXPECT = re.compile(r'// ?!expect: ?(.*)')
-RUNTIME_ERROR_EXPECT = re.compile(r'// ?!expect runtime error: (.*)')
-SYNTAX_ERROR_EXPECT = re.compile(r'// ?!expect syntax error: (.*)')
-ERROR_LINE = re.compile(r'Error: \[line ([0-9]+):([0-9]+)\]: (.+)')
+RUNTIME_ERROR_EXPECT = re.compile(r'// ?!expect runtime error: ?(.*)')
+SYNTAX_ERROR_EXPECT = re.compile(r'// ?!expect syntax error: ?(.*)')
+ERROR_LINE = re.compile(r'Error: \[line ([0-9]+):([0-9]+)\]: ?(.+)')
 
 expectations = 0
 

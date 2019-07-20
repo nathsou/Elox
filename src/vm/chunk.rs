@@ -1,9 +1,10 @@
 use super::instructions::{Inst, Value};
+use crate::scanner::token::Position;
 
 pub struct Chunk {
     code: Vec<Inst>,
     constants: Vec<Value>,
-    lines: Vec<usize>,
+    positions: Vec<Position>,
 }
 
 impl Chunk {
@@ -11,23 +12,27 @@ impl Chunk {
         Chunk {
             code: vec![],
             constants: vec![],
-            lines: vec![],
+            positions: vec![],
         }
     }
 
-    pub fn write(&mut self, inst: Inst, line: usize) {
+    pub fn write(&mut self, inst: Inst, pos: Position) {
         self.code.push(inst);
-        self.lines.push(line);
+        self.positions.push(pos);
     }
 
-    pub fn write_constant(&mut self, val: Value, line: usize) {
+    pub fn write_constant(&mut self, val: Value, pos: Position) {
         let idx = self.add_const(val);
-        self.write(Inst::Const(idx), line);
+        self.write(Inst::Const(idx), pos);
     }
 
     fn add_const(&mut self, val: Value) -> usize {
         self.constants.push(val);
         self.constants.len() - 1
+    }
+
+    pub fn read_const(&self, idx: &usize) -> Value {
+        self.constants[*idx].clone()
     }
 
     pub fn disassemble(&self, name: &str) {
@@ -45,17 +50,41 @@ impl Chunk {
         }
     }
 
+    pub fn inst_at(&self, idx: usize) -> &Inst {
+        &self.code[idx]
+    }
+
+    pub fn pos_at(&self, idx: usize) -> Position {
+        self.positions[idx]
+    }
+
     pub fn disassemble_inst(&self, offset: usize, inst: &Inst) -> String {
         use Inst::*;
         let d = match inst {
-            Return => format!("return"),
+            Ret => format!("ret"),
             Const(idx) => format!("const {} {}", idx, self.constants[*idx]),
+            Neg => format!("neg"),
+            Add => format!("add"),
+            Sub => format!("sub"),
+            Mult => format!("mult"),
+            Div => format!("div"),
+            Mod => format!("mod"),
+            Not => format!("not"),
+            True => format!("true"),
+            False => format!("false"),
+            Nil => format!("nil"),
+            Equ => format!("equ"),
+            Neq => format!("neq"),
+            Gtr => format!("gtr"),
+            Lss => format!("lss"),
+            Gtq => format!("gtq"),
+            Leq => format!("leq"),
         };
 
-        if offset > 0 && self.lines[offset - 1] == self.lines[offset] {
+        if offset > 0 && self.positions[offset - 1].line == self.positions[offset].line {
             format!("  | {}", d)
         } else {
-            format!("{} {}", self.lines[offset], d)
+            format!("{:?} {}", self.positions[offset], d)
         }
     }
 }

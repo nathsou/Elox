@@ -1,7 +1,9 @@
 extern crate elox;
 
-use crate::elox::vm::test;
+use crate::elox::runner::EloxFileAndPromptRunner;
+use crate::elox::vm::EloxVM;
 
 fn main() {
-    test();
+    let mut vm = EloxVM::new();
+    vm.run_from_std_args();
 }
