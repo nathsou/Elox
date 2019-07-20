@@ -1,3 +1,5 @@
+use crate::parser::IdentifierHandle;
+use fnv::FnvHashMap;
 use std::fmt;
 use std::rc::Rc;
 
@@ -21,15 +23,19 @@ pub enum Inst {
     Lss,
     Gtq,
     Leq,
+    Print,
+    Pop,
+    Global(IdentifierHandle),
+    GetGlobal(IdentifierHandle),
+    SetGlobal(IdentifierHandle),
 }
 
 impl Inst {
     pub fn len(&self) -> u8 {
         use Inst::*;
         match self {
-            Ret | Neg | Add | Sub | Mult | Div | Mod | Not | True | False | Nil | Equ | Neq
-            | Gtr | Lss | Gtq | Leq => 1,
-            Const(_) => 2,
+            Const(_) | Global(_) | GetGlobal(_) | SetGlobal(_) => 2,
+            _ => 1,
         }
     }
 }
@@ -102,8 +108,17 @@ impl Value {
         .into()
     }
 
-    pub fn new_str(s: &str) -> Value {
-        Value::Object(Rc::new(Obj::Str(String::from(s))))
+    pub fn new_str(s: &str, strings: &mut FnvHashMap<String, Rc<Obj>>) -> Value {
+        let s = String::from(s);
+
+        if let Some(string) = strings.get(&s) {
+            return Value::Object(Rc::clone(string));
+        }
+        let val = Rc::new(Obj::Str(s.clone()));
+
+        strings.insert(s, Rc::clone(&val));
+
+        Value::Object(Rc::clone(&val))
     }
 }
 
@@ -115,7 +130,7 @@ impl PartialEq for Value {
         match (self, other) {
             (&Value::Number(a), &Value::Number(b)) => a == b,
             (&Value::Boolean(a), &Value::Boolean(b)) => a == b,
-            (&Value::Object(ref a), &Value::Object(ref b)) => a == b,
+            (&Value::Object(ref a), &Value::Object(ref b)) => Rc::ptr_eq(a, b),
             (&Value::Nil, &Value::Nil) => true,
             _ => false,
         }

@@ -79,12 +79,17 @@ impl Chunk {
             Lss => format!("lss"),
             Gtq => format!("gtq"),
             Leq => format!("leq"),
+            Print => format!("print"),
+            Pop => format!("pop"),
+            Global(_) => format!("global"),
+            GetGlobal(_) => format!("get global"),
+            SetGlobal(_) => format!("set global"),
         };
 
         if offset > 0 && self.positions[offset - 1].line == self.positions[offset].line {
             format!("  | {}", d)
         } else {
-            format!("{:?} {}", self.positions[offset], d)
+            format!("{} {}", self.positions[offset], d)
         }
     }
 }

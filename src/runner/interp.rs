@@ -25,7 +25,7 @@ impl EloxRunner for EloxInterpreter {
         let scanner = Scanner::new(source.chars().peekable());
         let mut identifiers = IdentifierHandlesGenerator::new();
         let global = Environment::with_natives(None, &mut identifiers);
-        let mut parser = Parser::new(scanner.peekable(), identifiers);
+        let mut parser = Parser::new(scanner.peekable(), &mut identifiers);
 
         match parser.parse() {
             Ok(ast) => {

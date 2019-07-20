@@ -66,27 +66,33 @@ pub struct IdentifierHandlesGenerator {
 
 impl IdentifierHandlesGenerator {
     pub fn new() -> IdentifierHandlesGenerator {
-        let mut handle_gen = IdentifierHandlesGenerator {
+        let mut gen = IdentifierHandlesGenerator {
             next_id_handle: 9,
             handles: FnvHashMap::default(),
             next_use_handle: 0,
             names: Vec::with_capacity(9),
         };
 
-        handle_gen.insert(std::string::String::from("this"), Identifier::this());
-        handle_gen.insert(std::string::String::from("init"), Identifier::init());
-        handle_gen.insert(std::string::String::from("super"), Identifier::super_());
-        handle_gen.insert(std::string::String::from("Array"), Identifier::array());
-        handle_gen.insert(std::string::String::from("clock"), Identifier::clock());
-        handle_gen.insert(
-            std::string::String::from("anonymous"),
-            Identifier::anonymous(),
-        );
-        handle_gen.insert(std::string::String::from("#get"), Identifier::get());
-        handle_gen.insert(std::string::String::from("#set"), Identifier::set());
-        handle_gen.insert(std::string::String::from("#str"), Identifier::str_());
+        IdentifierHandlesGenerator::init(&mut gen);
+        gen
+    }
 
-        handle_gen
+    fn init(gen: &mut IdentifierHandlesGenerator) {
+        let identifiers = [
+            "this",
+            "init",
+            "super",
+            "Array",
+            "clock",
+            "anonymous",
+            "#get",
+            "#set",
+            "#str",
+        ];
+
+        for (handle, &name) in identifiers.iter().enumerate() {
+            gen.insert(std::string::String::from(name), handle);
+        }
     }
 
     pub fn insert(&mut self, name: std::string::String, handle: IdentifierHandle) {
@@ -96,6 +102,10 @@ impl IdentifierHandlesGenerator {
 
     pub fn names(&self) -> IdentifierNames {
         self.names.clone()
+    }
+
+    pub fn name(&self, id: IdentifierHandle) -> std::string::String {
+        self.names[id].clone()
     }
 
     fn next_with_name(&mut self, name: &str, pos: Position) -> IdentifierUse {
@@ -130,6 +140,11 @@ impl IdentifierHandlesGenerator {
 
         handle
     }
+
+    pub fn clear(&mut self) {
+        self.names.clear();
+        IdentifierHandlesGenerator::init(self);
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -161,12 +176,15 @@ impl IdentifierUse {
 
 pub struct Parser<'a> {
     tokens: Peekable<Scanner<'a>>,
-    identifiers: IdentifierHandlesGenerator,
+    identifiers: &'a mut IdentifierHandlesGenerator,
     pos: Position,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(tokens: Peekable<Scanner<'a>>, identifiers: IdentifierHandlesGenerator) -> Self {
+    pub fn new(
+        tokens: Peekable<Scanner<'a>>,
+        identifiers: &'a mut IdentifierHandlesGenerator,
+    ) -> Self {
         Parser {
             tokens,
             identifiers,

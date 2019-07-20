@@ -1,7 +1,7 @@
 use super::{EloxVM, Inst, Value};
 use crate::parser::expressions::{BinaryOperator, Expr, ExprCtx, Literal, UnaryOperator};
 use crate::parser::statements::Stmt;
-use crate::parser::{IdentifierHandlesGenerator, Parser};
+use crate::parser::{IdentifierHandle, Parser};
 use crate::runner::{EloxError, EloxResult};
 use crate::scanner::token::Position;
 use crate::scanner::Scanner;
@@ -18,12 +18,17 @@ impl EloxVM {
         self.chunk.write_constant(val, pos);
     }
 
+    #[inline]
+    fn named_variable(&mut self, handle: IdentifierHandle, pos: Position) {
+        self.emit(Inst::GetGlobal(handle), pos);
+    }
+
     pub fn compile(&mut self, source: &str) -> EloxResult {
         let scanner = Scanner::new(source.chars().peekable());
-        let identifiers = IdentifierHandlesGenerator::new();
-        let mut parser = Parser::new(scanner.peekable(), identifiers);
+        self.identifiers.clear();
+        let ast = Parser::new(scanner.peekable(), &mut self.identifiers).parse();
 
-        match parser.parse() {
+        match ast {
             Ok(ast) => {
                 for stmt in &ast {
                     self.compile_stmt(stmt)?;
@@ -32,7 +37,7 @@ impl EloxVM {
             Err(err) => return Err(EloxError::Parser(err)),
         }
 
-        self.emit(Inst::Ret, parser.pos());
+        self.emit(Inst::Ret, Position { line: 0, col: 0 });
 
         return Ok(());
     }
@@ -54,7 +59,8 @@ impl EloxVM {
                     self.emit(Inst::Nil, expr_ctx.pos);
                 }
                 Literal::String(ref string) => {
-                    self.emit_constant(Value::new_str(string), expr_ctx.pos);
+                    let obj = Value::new_str(string, &mut self.strings);
+                    self.emit_constant(obj, expr_ctx.pos);
                 }
             },
             Expr::Grouping(sub_expr) => {
@@ -88,6 +94,16 @@ impl EloxVM {
                     BinaryOperator::LessEqual => self.emit(Inst::Leq, op_ctx.pos),
                 }
             }
+            Expr::Var(var_expr) => {
+                self.named_variable(var_expr.identifier.name, var_expr.identifier.pos);
+            }
+            Expr::Assign(assignment_expr) => {
+                self.compile_expr(&assignment_expr.expr)?;
+                self.emit(
+                    Inst::SetGlobal(assignment_expr.identifier.name),
+                    assignment_expr.identifier.pos,
+                );
+            }
             _ => panic!("Unimplemented expr"),
         }
 
@@ -98,6 +114,23 @@ impl EloxVM {
         match stmt {
             Stmt::Expr(expr_stmt) => {
                 self.compile_expr(&expr_stmt.expr)?;
+                self.emit(Inst::Pop, expr_stmt.expr.pos);
+            }
+            Stmt::Print(print_stmt) => {
+                self.compile_expr(&print_stmt.value)?;
+                self.emit(Inst::Print, print_stmt.pos);
+            }
+            Stmt::VarDecl(var_decl) => {
+                if let Some(init) = &var_decl.initializer {
+                    self.compile_expr(init)?;
+                } else {
+                    self.emit(Inst::Nil, var_decl.identifier.pos);
+                }
+
+                self.emit(
+                    Inst::Global(var_decl.identifier.name),
+                    var_decl.identifier.pos,
+                );
             }
             _ => panic!("Unimplemented stmt"),
         }
