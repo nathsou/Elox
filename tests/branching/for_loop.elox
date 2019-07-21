@@ -1,0 +1,11 @@
+
+var a = 1;
+var b = 1;
+
+for (var i = 0; i < 7; i++) {
+    var c = a + b;
+    a = b;
+    b = c;
+}
+
+print b; // !expect: 34

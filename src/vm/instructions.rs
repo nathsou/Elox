@@ -3,7 +3,7 @@ use fnv::FnvHashMap;
 use std::fmt;
 use std::rc::Rc;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Inst {
     Ret,
     Const(usize),
@@ -31,16 +31,10 @@ pub enum Inst {
     SetGlobal(IdentifierHandle),
     GetLocal(usize),
     SetLocal(usize),
-}
-
-impl Inst {
-    pub fn len(&self) -> u8 {
-        use Inst::*;
-        match self {
-            Const(_) | DefGlobal(_) | GetGlobal(_) | SetGlobal(_) | GetLocal(_) | SetLocal(_) | PopN(_) => 2,
-            _ => 1,
-        }
-    }
+    Jmp(usize),
+    JmpIfFalse(usize),
+    JmpIfTrue(usize),
+    Loop(usize), // Jumps backwards
 }
 
 #[derive(Clone, Debug)]

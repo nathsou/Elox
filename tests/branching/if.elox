@@ -1,0 +1,14 @@
+
+var elox_is_awesome = true;
+
+if (elox_is_awesome) {
+    print "I thought so"; // !expect: I thought so
+} else {
+    print "No worries..";
+}
+
+if (3 > 7) {
+    print "Math is broken";
+} else {
+    print "Everything is fine!"; // !expect: Everything is fine!
+}

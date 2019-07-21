@@ -80,13 +80,33 @@ impl EloxVM {
             // self.trace();
             match self.chunk.inst_at(self.ip) {
                 Inst::Ret => {
-                    return Ok(());
+                    break;
                 }
                 Inst::Pop => {
                     self.pop();
                 }
                 Inst::PopN(n) => {
                     self.stack.pop_n(*n);
+                }
+                Inst::Jmp(offset) => {
+                    self.ip += offset;
+                    continue; // don't increment the ip at the end
+                }
+                Inst::Loop(offset) => {
+                    self.ip -= offset;
+                    continue;
+                }
+                Inst::JmpIfTrue(offset) => {
+                    if self.stack.peek(0).is_truthy() {
+                        self.ip += offset;
+                        continue;
+                    }
+                }
+                Inst::JmpIfFalse(offset) => {
+                    if !self.stack.peek(0).is_truthy() {
+                        self.ip += offset;
+                        continue;
+                    }
                 }
                 Inst::DefGlobal(id_handle) => {
                     // we peek instead of popping to ensure that the VM still has
@@ -167,6 +187,12 @@ impl EloxVM {
             }
             self.ip += 1;
         }
+        debug_assert!(
+            self.stack.size() == 0,
+            "the stack must be empty at the end of execution",
+        );
+
+        Ok(())
     }
 
     #[inline]
@@ -215,6 +241,8 @@ impl EloxRunner for EloxVM {
             }
             Err(err) => return Err(EloxError::Parser(err)),
         };
+
+        // self.chunk.disassemble("test");
 
         self.launch()?;
         Ok(())
@@ -273,6 +301,11 @@ impl EloxVMStack {
         //     let end = self.stack.as_ptr().add(self.stack.len() - 1 - offset);
         //     std::ptr::read(end)
         // }
+    }
+
+    #[inline]
+    pub fn size(&self) -> usize {
+        self.stack.len()
     }
 }
 

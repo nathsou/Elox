@@ -1,0 +1,7 @@
+
+{
+  var a = "outer";
+  {
+    var a = a; // !expect syntax error: Cannot read local variable 'a' in its own initializer
+  }
+}

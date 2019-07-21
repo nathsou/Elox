@@ -112,7 +112,7 @@ class EloxTest:
 
         if match.group(3) != self.syntax_err[0]:
             self.fail(
-                'Expected runtime error "{0}" and got: "{1}"', self.syntax_err[0], match.group(3))
+                'Expected syntax error "{0}" and got: "{1}"', self.syntax_err[0], match.group(3))
 
     def validate_runtime_error(self, errors):
         if len(errors) < 2:

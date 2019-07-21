@@ -1,6 +1,8 @@
 use super::{Chunk, Inst, Obj, Value};
 use crate::interpreter::lexical_scope::LexicalScopeResolutionError;
-use crate::parser::expressions::{BinaryOperator, Expr, ExprCtx, Literal, UnaryOperator};
+use crate::parser::expressions::{
+    BinaryOperator, Expr, ExprCtx, Literal, LogicalOperator, UnaryOperator,
+};
 use crate::parser::statements::Stmt;
 use crate::parser::{IdentifierHandle, IdentifierHandlesGenerator};
 use crate::runner::{EloxError, EloxResult};
@@ -8,6 +10,26 @@ use crate::scanner::token::Position;
 use fnv::FnvHashMap;
 use std::ops::Deref;
 use std::rc::Rc;
+
+// update a jump instruction once the offset is known
+macro_rules! patch_jmp {
+    ($self: tt, $idx: expr) => {
+        let offset = $self.chunk.inst_count() - $idx;
+
+        $self.chunk.replace_inst(
+            $idx,
+            match $self.chunk.inst_at($idx) {
+                Inst::Jmp(_) => Inst::Jmp(offset),
+                Inst::JmpIfTrue(_) => Inst::JmpIfTrue(offset),
+                Inst::JmpIfFalse(_) => Inst::JmpIfFalse(offset),
+                _ => panic!(
+                    "patch_jmp macro expected a Jmp instruction, got: {:?}",
+                    $self.chunk.inst_at($idx)
+                ),
+            },
+        );
+    };
+}
 
 struct Local {
     handle: IdentifierHandle,
@@ -152,6 +174,16 @@ impl<'a> Compiler<'a> {
         };
     }
 
+    fn emit_jmp(&mut self, inst: Inst, pos: Position) -> usize {
+        self.emit(inst, pos);
+        self.chunk.inst_count() - 1
+    }
+
+    fn emit_loop(&mut self, loop_start: usize, pos: Position) {
+        let offset = self.chunk.inst_count() - loop_start;
+        self.emit(Inst::Loop(offset), pos);
+    }
+
     pub fn compile(&mut self, ast: &Vec<Stmt>) -> EloxResult {
         for stmt in ast {
             self.compile_stmt(stmt)?;
@@ -224,6 +256,33 @@ impl<'a> Compiler<'a> {
                     assignment_expr.identifier.pos,
                 )?;
             }
+            Expr::Logical(logical_expr) => {
+                let logical_expr = logical_expr.deref();
+
+                self.compile_expr(&logical_expr.left)?;
+
+                match logical_expr.operator {
+                    LogicalOperator::And => {
+                        let short_circuit =
+                            self.emit_jmp(Inst::JmpIfFalse(0), logical_expr.left.pos);
+
+                        // discard the left operand (which is true)
+                        self.emit(Inst::Pop, logical_expr.right.pos);
+                        self.compile_expr(&logical_expr.right)?;
+
+                        patch_jmp!(self, short_circuit);
+                    }
+                    LogicalOperator::Or => {
+                        let short_circuit =
+                            self.emit_jmp(Inst::JmpIfTrue(0), logical_expr.left.pos);
+
+                        self.emit(Inst::Pop, logical_expr.right.pos);
+                        self.compile_expr(&logical_expr.right)?;
+
+                        patch_jmp!(self, short_circuit);
+                    }
+                }
+            }
             _ => panic!("Unimplemented expr"),
         }
 
@@ -262,6 +321,42 @@ impl<'a> Compiler<'a> {
                     self.compile_stmt(stmt)?;
                 }
                 self.end_scope(block.end_pos);
+            }
+            Stmt::If(if_stmt) => {
+                self.compile_expr(&if_stmt.condition)?;
+
+                let then_jmp = self.emit_jmp(Inst::JmpIfFalse(0), if_stmt.condition.pos);
+                // pop the condition
+                self.emit(Inst::Pop, if_stmt.condition.pos);
+                self.compile_stmt(if_stmt.then_branch.deref())?;
+
+                let else_jmp = self.emit_jmp(Inst::Jmp(0), if_stmt.condition.pos);
+                patch_jmp!(self, then_jmp);
+
+                // pop the condition
+                self.emit(Inst::Pop, if_stmt.condition.pos);
+
+                if let Some(else_branch) = &if_stmt.else_branch {
+                    self.compile_stmt(else_branch.deref())?;
+                }
+
+                patch_jmp!(self, else_jmp);
+            }
+            Stmt::While(while_stmt) => {
+                let loop_start = self.chunk.inst_count();
+
+                self.compile_expr(&while_stmt.condition)?;
+
+                let exit_jmp = self.emit_jmp(Inst::JmpIfFalse(0), while_stmt.condition.pos);
+
+                self.emit(Inst::Pop, while_stmt.condition.pos);
+                self.compile_stmt(while_stmt.body.deref())?;
+
+                self.emit_loop(loop_start, while_stmt.condition.pos);
+
+                patch_jmp!(self, exit_jmp);
+
+                self.emit(Inst::Pop, while_stmt.condition.pos);
             }
             _ => panic!("Unimplemented stmt"),
         }

@@ -1,28 +1,10 @@
 
-var a = 1;
+for (var n = 0; n < 10; n++) {
+    var parity = "even";
 
-{
-    var b = 2;
-    var c = 3;
-    {
-        print b;
-        var d = 4;
-        {
-            var e = 5;
-            print c;
-            b = 8;
-            print 8;
-            print a;
-            {
-                var a = 1;
-                var b = 1;
-                var c = 1;
-                var d = 1;
-                var e = 1;
-                var f = 1;
-            }
-        }
+    if (n % 2 == 1) {
+        parity = "odd";
     }
-}
 
-print a;
+    print n + " is " + parity;
+}

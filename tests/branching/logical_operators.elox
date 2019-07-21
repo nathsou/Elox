@@ -1,0 +1,10 @@
+
+print true and true; // !expect: true
+print false and true; // !expect: false
+print true and false; // !expect: false
+print false and false; // !expect: false
+
+print true or true; // !expect: true
+print false or true; // !expect: true
+print true or false; // !expect: true
+print false or false; // !expect: false

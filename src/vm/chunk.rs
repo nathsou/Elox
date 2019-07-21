@@ -36,18 +36,21 @@ impl Chunk {
     }
 
     pub fn disassemble(&self, name: &str) {
-        println!("----- {} -----", name);
-
-        let mut byte_offset = 0;
+        println!("----- begin {} -----", name);
 
         for (offset, inst) in self.code.iter().enumerate() {
-            println!(
-                "{:04x} {}",
-                byte_offset,
-                self.disassemble_inst(offset, inst)
-            );
-            byte_offset += inst.len();
+            println!("{}", self.disassemble_inst(offset, inst));
         }
+
+        println!("----- end {} -----", name);
+    }
+
+    pub fn inst_count(&self) -> usize {
+        self.code.len()
+    }
+
+    pub fn replace_inst(&mut self, idx: usize, new_inst: Inst) {
+        self.code[idx] = new_inst;
     }
 
     pub fn inst_at(&self, idx: usize) -> &Inst {
@@ -87,12 +90,16 @@ impl Chunk {
             SetGlobal(id) => format!("set global {}", id),
             GetLocal(idx) => format!("get local {}", idx),
             SetLocal(idx) => format!("set local {}", idx),
+            Jmp(offset) => format!("jmp {}", offset),
+            JmpIfTrue(offset) => format!("jmp if true {}", offset),
+            JmpIfFalse(offset) => format!("jmp if false {}", offset),
+            Loop(offset) => format!("jmp -{}", offset),
         };
 
         if offset > 0 && self.positions[offset - 1].line == self.positions[offset].line {
-            format!("  | {}", d)
+            format!("{:04x}  | {}", offset, d)
         } else {
-            format!("{} {}", self.positions[offset], d)
+            format!("{:04x} line {}: {}", offset, self.positions[offset].line, d)
         }
     }
 }

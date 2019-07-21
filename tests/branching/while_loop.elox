@@ -1,0 +1,10 @@
+
+var p = 1;
+var i = 0;
+while (i < 10) {
+    p *= 2;
+    i++;
+}
+
+print i; // !expect: 10
+print p; // !expect: 1024
