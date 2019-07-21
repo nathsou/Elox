@@ -1,13 +1,42 @@
-use super::{EloxVM, Inst, Value};
+use super::{Chunk, Inst, Obj, Value};
+use crate::interpreter::lexical_scope::LexicalScopeResolutionError;
 use crate::parser::expressions::{BinaryOperator, Expr, ExprCtx, Literal, UnaryOperator};
 use crate::parser::statements::Stmt;
-use crate::parser::{IdentifierHandle, Parser};
+use crate::parser::{IdentifierHandle, IdentifierHandlesGenerator};
 use crate::runner::{EloxError, EloxResult};
 use crate::scanner::token::Position;
-use crate::scanner::Scanner;
+use fnv::FnvHashMap;
 use std::ops::Deref;
+use std::rc::Rc;
 
-impl EloxVM {
+struct Local {
+    handle: IdentifierHandle,
+    depth: usize,
+}
+
+pub struct Compiler<'a> {
+    chunk: &'a mut Chunk,
+    identifiers: &'a mut IdentifierHandlesGenerator,
+    strings: &'a mut FnvHashMap<String, Rc<Obj>>,
+    scope_depth: usize,
+    locals: Vec<Local>,
+}
+
+impl<'a> Compiler<'a> {
+    pub fn new(
+        chunk: &'a mut Chunk,
+        identifiers: &'a mut IdentifierHandlesGenerator,
+        strings: &'a mut FnvHashMap<String, Rc<Obj>>,
+    ) -> Compiler<'a> {
+        Compiler {
+            chunk,
+            identifiers,
+            strings,
+            scope_depth: 0,
+            locals: Vec::new(),
+        }
+    }
+
     #[inline(always)]
     fn emit(&mut self, inst: Inst, pos: Position) {
         self.chunk.write(inst, pos);
@@ -18,23 +47,114 @@ impl EloxVM {
         self.chunk.write_constant(val, pos);
     }
 
-    #[inline]
-    fn named_variable(&mut self, handle: IdentifierHandle, pos: Position) {
-        self.emit(Inst::GetGlobal(handle), pos);
+    fn get_named_variable(&mut self, handle: IdentifierHandle, pos: Position) -> EloxResult {
+        if let Some(idx) = self.resolve_local(handle, pos)? {
+            self.emit(Inst::GetLocal(idx), pos);
+        } else {
+            self.emit(Inst::GetGlobal(handle), pos);
+        }
+
+        Ok(())
     }
 
-    pub fn compile(&mut self, source: &str) -> EloxResult {
-        let scanner = Scanner::new(source.chars().peekable());
-        self.identifiers.clear();
-        let ast = Parser::new(scanner.peekable(), &mut self.identifiers).parse();
+    fn set_named_variable(&mut self, handle: IdentifierHandle, pos: Position) -> EloxResult {
+        if let Some(idx) = self.resolve_local(handle, pos)? {
+            self.emit(Inst::SetLocal(idx), pos);
+        } else {
+            self.emit(Inst::SetGlobal(handle), pos);
+        }
 
-        match ast {
-            Ok(ast) => {
-                for stmt in &ast {
-                    self.compile_stmt(stmt)?;
-                }
+        Ok(())
+    }
+
+    fn resolve_local(
+        &self,
+        handle: IdentifierHandle,
+        pos: Position,
+    ) -> Result<Option<usize>, EloxError> {
+        for (idx, local) in self.locals.iter().rev().enumerate() {
+            if local.handle == handle {
+                return if local.depth == usize::max_value() {
+                    Err(EloxError::Resolution(
+                        LexicalScopeResolutionError::VariableUsedInItsInitializer(
+                            pos,
+                            self.identifiers.name(handle),
+                        ),
+                    ))
+                } else {
+                    Ok(Some(self.locals.len() - 1 - idx))
+                };
             }
-            Err(err) => return Err(EloxError::Parser(err)),
+        }
+
+        Ok(None)
+    }
+
+    fn declare_variable(&mut self, handle: IdentifierHandle, pos: Position) -> EloxResult {
+        // Global variables are implicitly declared.
+        if self.scope_depth == 0 {
+            return Ok(());
+        }
+
+        for local in self.locals.iter().rev() {
+            if local.depth < self.scope_depth {
+                break;
+            }
+
+            if local.handle == handle {
+                return Err(EloxError::Resolution(
+                    LexicalScopeResolutionError::DuplicateVariableDeclaration(
+                        pos,
+                        self.identifiers.name(handle),
+                    ),
+                ));
+            }
+        }
+
+        self.add_local(handle);
+
+        return Ok(());
+    }
+
+    fn add_local(&mut self, handle: IdentifierHandle) {
+        self.locals.push(Local {
+            handle,
+            depth: usize::max_value(), // mark as uninitialized
+        });
+    }
+
+    fn mark_initialized(&mut self) {
+        if self.scope_depth != 0 {
+            let mut local = self.locals.last_mut().unwrap();
+            local.depth = self.scope_depth;
+        }
+    }
+
+    #[inline]
+    fn begin_scope(&mut self) {
+        self.scope_depth += 1;
+    }
+
+    #[inline]
+    fn end_scope(&mut self, pos: Position) {
+        self.scope_depth -= 1;
+        let mut pops = 0;
+
+        while self.locals.len() > 0 && self.locals[self.locals.len() - 1].depth > self.scope_depth {
+            self.locals.pop();
+            pops += 1;
+        }
+
+        match pops {
+            0 => {}
+            1 => self.emit(Inst::Pop, pos),
+            _ => self.emit(Inst::PopN(pops), pos),
+        };
+    }
+
+    pub fn compile(&mut self, ast: &Vec<Stmt>) -> EloxResult {
+        for stmt in ast {
+            self.compile_stmt(stmt)?;
         }
 
         self.emit(Inst::Ret, Position { line: 0, col: 0 });
@@ -95,14 +215,14 @@ impl EloxVM {
                 }
             }
             Expr::Var(var_expr) => {
-                self.named_variable(var_expr.identifier.name, var_expr.identifier.pos);
+                self.get_named_variable(var_expr.identifier.name, var_expr.identifier.pos)?;
             }
             Expr::Assign(assignment_expr) => {
                 self.compile_expr(&assignment_expr.expr)?;
-                self.emit(
-                    Inst::SetGlobal(assignment_expr.identifier.name),
+                self.set_named_variable(
+                    assignment_expr.identifier.name,
                     assignment_expr.identifier.pos,
-                );
+                )?;
             }
             _ => panic!("Unimplemented expr"),
         }
@@ -121,16 +241,27 @@ impl EloxVM {
                 self.emit(Inst::Print, print_stmt.pos);
             }
             Stmt::VarDecl(var_decl) => {
+                self.declare_variable(var_decl.identifier.name, var_decl.identifier.pos)?;
                 if let Some(init) = &var_decl.initializer {
                     self.compile_expr(init)?;
                 } else {
                     self.emit(Inst::Nil, var_decl.identifier.pos);
                 }
+                self.mark_initialized();
 
-                self.emit(
-                    Inst::Global(var_decl.identifier.name),
-                    var_decl.identifier.pos,
-                );
+                if self.scope_depth == 0 {
+                    self.emit(
+                        Inst::DefGlobal(var_decl.identifier.name),
+                        var_decl.identifier.pos,
+                    );
+                }
+            }
+            Stmt::Block(block) => {
+                self.begin_scope();
+                for stmt in &block.stmts {
+                    self.compile_stmt(stmt)?;
+                }
+                self.end_scope(block.end_pos);
             }
             _ => panic!("Unimplemented stmt"),
         }

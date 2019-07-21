@@ -1,3 +1,5 @@
+// #[!vm]
+
 class A {}
 
 fun f() {

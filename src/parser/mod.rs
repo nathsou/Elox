@@ -502,6 +502,7 @@ impl<'a> Parser<'a> {
     fn for_stmt(&mut self) -> ParserResult<Stmt> {
         if self.consume(LeftParen)? {
             let mut initializer;
+            let start_pos = self.pos;
 
             if self.consume(Var)? {
                 initializer = Some(self.var_declaration()?);
@@ -532,7 +533,7 @@ impl<'a> Parser<'a> {
             let mut body = self.statement()?;
 
             if let Some(inc) = increment {
-                body = BlockStmt::to_stmt(vec![body, ExprStmt::to_stmt(inc)]);
+                body = BlockStmt::to_stmt(vec![body, ExprStmt::to_stmt(inc)], start_pos, self.pos);
             }
 
             body = WhileStmt::to_stmt(
@@ -545,7 +546,7 @@ impl<'a> Parser<'a> {
             );
 
             if let Some(init) = initializer {
-                body = BlockStmt::to_stmt(vec![init, body]);
+                body = BlockStmt::to_stmt(vec![init, body], start_pos, self.pos);
             }
 
             Ok(body)
@@ -614,6 +615,7 @@ impl<'a> Parser<'a> {
 
     fn block(&mut self) -> ParserResult<BlockStmt> {
         let mut stmts = Vec::new();
+        let start_pos = self.pos;
 
         while let Some(Ok(tok)) = self.tokens.peek() {
             if tok.token_type == RightBrace {
@@ -624,7 +626,7 @@ impl<'a> Parser<'a> {
         }
 
         if self.consume(RightBrace)? {
-            return Ok(BlockStmt { stmts });
+            return Ok(BlockStmt { stmts, start_pos, end_pos: self.pos });
         }
 
         Err(ParserError::ExpectedRightBraceAfterBlock(self.pos))

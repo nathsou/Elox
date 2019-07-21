@@ -5,14 +5,15 @@ pub mod instructions;
 use crate::interpreter::eval_result::EvalError;
 use crate::interpreter::host::Host;
 use crate::parser::expressions::{BinaryOperator, UnaryOperator};
-use crate::parser::{IdentifierHandle, IdentifierHandlesGenerator};
+use crate::parser::{IdentifierHandle, IdentifierHandlesGenerator, Parser};
 use crate::runner::{EloxError, EloxResult, EloxRunner};
 use crate::scanner::scanner_result::ErrorPosition;
 use crate::scanner::token::Position;
+use crate::scanner::Scanner;
 use chunk::Chunk;
+use compiler::Compiler;
 use fnv::FnvHashMap;
 use instructions::{Inst, Obj, Value};
-use std::collections::VecDeque;
 use std::fmt;
 use std::rc::Rc;
 
@@ -76,20 +77,22 @@ impl EloxVM {
 
     pub fn launch(&mut self) -> EloxResult {
         loop {
-            self.trace();
-            let inst = self.chunk.inst_at(self.ip);
-            match inst {
+            // self.trace();
+            match self.chunk.inst_at(self.ip) {
                 Inst::Ret => {
                     return Ok(());
                 }
                 Inst::Pop => {
                     self.pop();
                 }
-                Inst::Global(id_handle) => {
+                Inst::PopN(n) => {
+                    self.stack.pop_n(*n);
+                }
+                Inst::DefGlobal(id_handle) => {
                     // we peek instead of popping to ensure that the VM still has
                     // access to the value while inserting it to the globals HashMap
                     // in the event of a gc while inserting
-                    let val = self.stack.peek().clone();
+                    let val = self.stack.peek(0);
                     self.globals.insert(*id_handle, val);
                     self.pop();
                 }
@@ -113,8 +116,16 @@ impl EloxVM {
                         )));
                     }
 
-                    let val = self.stack.peek().clone();
+                    let val = self.stack.peek(0);
                     self.globals.insert(*id_handle, val);
+                }
+                Inst::GetLocal(idx) => {
+                    let val = self.stack.get(*idx);
+                    self.push(val);
+                }
+                Inst::SetLocal(idx) => {
+                    let val = self.stack.peek(0);
+                    self.stack.set(*idx, val);
                 }
                 Inst::Print => {
                     println!("{}", self.pop());
@@ -158,20 +169,22 @@ impl EloxVM {
         }
     }
 
+    #[inline]
     fn pos(&self) -> Position {
         self.chunk.pos_at(self.ip)
     }
 
-    #[inline(always)]
+    #[inline]
     fn push(&mut self, val: Value) {
         self.stack.push(val);
     }
 
-    #[inline(always)]
+    #[inline]
     fn pop(&mut self) -> Value {
         self.stack.pop()
     }
 
+    #[inline]
     #[allow(dead_code)]
     fn trace(&self) {
         println!("{}", self.stack);
@@ -181,11 +194,28 @@ impl EloxVM {
                 .disassemble_inst(self.ip, self.chunk.inst_at(self.ip))
         );
     }
+
+    pub fn clear(&mut self) {
+        self.identifiers.clear();
+        self.strings.clear();
+    }
 }
 
 impl EloxRunner for EloxVM {
     fn run(&mut self, source: &str) -> EloxResult {
-        self.compile(source)?;
+        let scanner = Scanner::new(source.chars().peekable());
+        let ast = Parser::new(scanner.peekable(), &mut self.identifiers).parse();
+
+        match ast {
+            Ok(ast) => {
+                let mut compiler =
+                    Compiler::new(&mut self.chunk, &mut self.identifiers, &mut self.strings);
+
+                compiler.compile(&ast)?;
+            }
+            Err(err) => return Err(EloxError::Parser(err)),
+        };
+
         self.launch()?;
         Ok(())
     }
@@ -196,63 +226,53 @@ impl EloxRunner for EloxVM {
     }
 }
 
-// peekable stack https://docs.rs/itertools/0.8.0/src/itertools/multipeek_impl.rs.html#20-28
-pub struct EloxVMStack {
+// peekable stack
+struct EloxVMStack {
     stack: Vec<Value>,
-    peek_idx: usize,
-    peek_buf: VecDeque<Value>,
 }
 
 impl EloxVMStack {
-    pub fn new() -> EloxVMStack {
-        EloxVMStack::with_capacity(0)
-    }
-
     pub fn with_capacity(cap: usize) -> EloxVMStack {
         EloxVMStack {
             stack: Vec::with_capacity(cap),
-            peek_idx: 0,
-            peek_buf: VecDeque::new(),
         }
+    }
+
+    #[inline]
+    pub fn get(&self, idx: usize) -> Value {
+        assert!(self.stack.len() > idx);
+        self.stack[idx].clone()
+    }
+
+    #[inline]
+    pub fn set(&mut self, idx: usize, val: Value) {
+        assert!(self.stack.len() > idx);
+        self.stack[idx] = val;
     }
 
     #[inline]
     pub fn push(&mut self, val: Value) {
         self.stack.push(val);
-        self.reset_peek();
     }
 
     #[inline]
     pub fn pop(&mut self) -> Value {
-        self.peek_idx = 0;
-        if self.peek_buf.is_empty() {
-            self.stack.pop().expect("tried to pop an empty stack")
-        } else {
-            self.peek_buf
-                .pop_front()
-                .expect("tried to pop an empty stack")
-        }
+        self.stack.pop().expect("tried to pop an empty stack")
     }
 
     #[inline]
-    pub fn reset_peek(&mut self) {
-        if !self.peek_buf.is_empty() {
-            self.peek_buf.clear();
-            self.peek_idx = 0;
-        }
+    pub fn pop_n(&mut self, n: usize) {
+        self.stack.drain((self.stack.len() - n)..);
     }
 
-    pub fn peek(&mut self) -> &Value {
-        if self.peek_idx >= self.peek_buf.len() {
-            let val = self.stack.pop().expect("tried to peek an empty stack");
-            self.peek_buf.push_back(val);
-        }
-
-        let ret = &self.peek_buf[self.peek_idx];
-
-        self.peek_idx += 1;
-
-        ret
+    #[inline]
+    pub fn peek(&mut self, offset: usize) -> Value {
+        assert!(offset < self.stack.len());
+        self.stack[self.stack.len() - 1 - offset].clone()
+        // unsafe {
+        //     let end = self.stack.as_ptr().add(self.stack.len() - 1 - offset);
+        //     std::ptr::read(end)
+        // }
     }
 }
 
@@ -267,5 +287,30 @@ impl fmt::Display for EloxVMStack {
                 .collect::<Vec<_>>()
                 .join(", ")
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn stack() {
+        let mut stack = EloxVMStack::with_capacity(2);
+        let a = Value::Number(3f64);
+        let b = Value::Number(7f64);
+        let c = Value::Object(Rc::new(Obj::Str(String::from("test"))));
+        stack.push(a.clone());
+        stack.push(b.clone());
+        assert_eq!(stack.pop(), b);
+        assert_eq!(stack.peek(0), a);
+        stack.push(c.clone());
+        assert_eq!(stack.peek(1), a);
+        {
+            let p = stack.peek(0);
+            assert_eq!(p, c);
+        }
+        let p2 = stack.pop();
+        assert_eq!(p2, c);
+        assert_eq!(stack.pop(), a);
     }
 }

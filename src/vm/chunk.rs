@@ -81,9 +81,12 @@ impl Chunk {
             Leq => format!("leq"),
             Print => format!("print"),
             Pop => format!("pop"),
-            Global(_) => format!("global"),
-            GetGlobal(_) => format!("get global"),
-            SetGlobal(_) => format!("set global"),
+            PopN(n) => format!("pop {}", n),
+            DefGlobal(id) => format!("def global {}", id),
+            GetGlobal(id) => format!("get global {}", id),
+            SetGlobal(id) => format!("set global {}", id),
+            GetLocal(idx) => format!("get local {}", idx),
+            SetLocal(idx) => format!("set local {}", idx),
         };
 
         if offset > 0 && self.positions[offset - 1].line == self.positions[offset].line {

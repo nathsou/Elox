@@ -1,3 +1,4 @@
+// #[!vm]
 
 class Person {
     init(name, age, city) {

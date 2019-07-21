@@ -1,3 +1,4 @@
+// #[!vm]
 
 var sq = fun(x) { return x * x; };
 

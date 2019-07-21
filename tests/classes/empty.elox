@@ -1,3 +1,5 @@
+// #[!vm]
+
 class Empty {}
 
 print Empty; // !expect: <class Empty>

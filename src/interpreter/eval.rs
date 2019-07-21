@@ -273,7 +273,7 @@ impl Eval for Interpreter {
                 Ok(Value::Nil)
             }
             Expr::Super(super_expr) => {
-                if let Some(&depth) = self.depths.get(&super_expr.identifier.use_handle) {
+                if let Some(&depth) = self.resolver.depth(super_expr.identifier.use_handle) {
                     if let Some(superclass) = env.get(depth, Identifier::super_()) {
                         if let Some(Value::Instance(instance)) =
                             env.get(depth - 1, Identifier::this())

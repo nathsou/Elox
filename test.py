@@ -12,29 +12,43 @@ import sys
 
 ROOT_DIR = dirname(realpath(__file__))
 TESTS_DIR = ROOT_DIR + "/tests"
-ELOX_INTERP_PATH = ROOT_DIR + "/target/release/elox"
+ELOX_TREEWALK_PATH = ROOT_DIR + "/target/release/elox"
+ELOX_VM_PATH = ROOT_DIR + "/target/release/vm"
 
 OUTPUT_EXPECT = re.compile(r'// ?!expect: ?(.*)')
 RUNTIME_ERROR_EXPECT = re.compile(r'// ?!expect runtime error: ?(.*)')
 SYNTAX_ERROR_EXPECT = re.compile(r'// ?!expect syntax error: ?(.*)')
 ERROR_LINE = re.compile(r'Error: \[line ([0-9]+):([0-9]+)\]: ?(.+)')
+HEADER = re.compile(r'// ?#\[(\!?)(\w+)\s*\]')
+
+elox_path = ELOX_TREEWALK_PATH
 
 expectations = 0
 
 
 class EloxTest:
-    def __init__(self, path):
+    def __init__(self, path, target):
         self.path = path
+        self.target = target
         self.output = []
         self.failures = []
         self.expectations = 0
         self.runtime_err = None
         self.syntax_err = None
 
-    def parse(self):
+    def parse(self):  # returns True if the test should be run
         line_nb = 1
         with open(self.path, 'r') as file:
             for line in file:
+                if line_nb == 1:
+                    header = HEADER.search(line)
+                    if header:
+                        negate = header.group(1) == '!'
+                        target = header.group(2)
+                        if target == self.target:
+                            if negate:
+                                return False
+
                 expect = OUTPUT_EXPECT.search(line)
                 if expect:
                     self.output.append((expect.group(1), line_nb))
@@ -45,7 +59,7 @@ class EloxTest:
                     if self.runtime_err:
                         self.fail(
                             "Test error: Cannot expect multiple runtime errors")
-                        return
+                        return False
 
                     self.runtime_err = (runtime_err.group(1), line_nb)
                     self.expectations += 1
@@ -55,13 +69,14 @@ class EloxTest:
                     if self.syntax_err:
                         self.fail(
                             "Test error: Cannot expect multiple syntax errors")
-                        return
+                        return False
                     self.syntax_err = (syntax_err.group(1), line_nb)
                     self.expectations += 1
             line_nb += 1
+        return True
 
     def run(self):
-        args = [ELOX_INTERP_PATH, self.path]
+        args = [elox_path, self.path]
         proc = Popen(args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
         out, err = proc.communicate()
         self.validate(out, err)
@@ -140,36 +155,53 @@ class EloxTest:
         self.failures.append(message)
 
 
-def run_test(path):
+def run_test(path, target):  # returns True if this test was run
     global expectations
-    test = EloxTest(path)
-    test.parse()
-    test.run()
-    if len(test.failures) != 0:
-        print(relpath(path).replace("\\", "/") + ' failed: ')
-        for failure in test.failures:
-            print(failure)
-            sys.exit(1)
-    else:
-        expectations += test.expectations
+    test = EloxTest(path, target)
+    if test.parse():
+        test.run()
+        if len(test.failures) != 0:
+            print(relpath(path).replace("\\", "/") + ' failed: ')
+            for failure in test.failures:
+                print(failure)
+                sys.exit(1)
+        else:
+            expectations += test.expectations
+            return True
+
+    return False
 
 
-def run_tests(dir):
+def run_tests(dir, target):
     global expectations
     prev_expectations = expectations
     expectations = 0
+    skipped = 0
 
     for path in listdir(dir):
         sub_path = join(dir, path)
         if isdir(sub_path):
-            run_tests(sub_path)
+            skipped += run_tests(sub_path, target)
         else:
-            run_test(sub_path)
+            skipped += int(not run_test(sub_path, target))
 
     print('All tests passed in ' + relpath(dir) +
-          ', expectations: ' + str(expectations))
+          ', expectations: ' + str(expectations) + ", skipped: " + str(skipped))
 
     expectations += prev_expectations
+    return skipped
 
 
-run_tests(TESTS_DIR)
+def parse_args():
+    global elox_path
+    args = sys.argv
+    target = "tw"
+    if len(args) > 1:
+        target = args[1]
+    if target == "vm":
+        elox_path = ELOX_VM_PATH
+
+    run_tests(TESTS_DIR, target)
+
+
+parse_args()

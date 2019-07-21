@@ -72,7 +72,8 @@ impl Value {
                 CallableValue::Native(_) => "native",
             },
             Value::Instance(_) => "instance",
-        }.into()
+        }
+        .into()
     }
 }
 

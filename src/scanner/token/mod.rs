@@ -21,7 +21,7 @@ impl Position {
 
 impl fmt::Display for Position {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[line {}:{}]", self.line, self.col)
+        write!(f, "line {}:{}", self.line, self.col)
     }
 }
 

@@ -1,8 +1,7 @@
-use super::Interpreter;
 use super::Stmt;
 use crate::parser::{
     expressions::{Expr, ExprCtx, FuncExpr, FuncParam, VarExpr},
-    Identifier, IdentifierHandle, IdentifierNames, IdentifierUse,
+    Identifier, IdentifierHandle, IdentifierNames, IdentifierUse, IdentifierUseHandle,
 };
 use crate::scanner::scanner_result::ErrorPosition;
 use crate::scanner::token::Position;
@@ -35,25 +34,29 @@ pub enum ClassType {
     Subclass,
 }
 
-pub struct Resolver<'a> {
+pub struct Resolver {
     scopes: Vec<FnvHashMap<IdentifierHandle, IdentifierStatus>>,
-    interpreter: &'a mut Interpreter,
+    depths: FnvHashMap<IdentifierUseHandle, usize>,
     pub func_type: FunctionType,
     pub class_type: ClassType,
     pub class_name: Option<IdentifierHandle>,
     names: Rc<IdentifierNames>,
 }
 
-impl<'a> Resolver<'a> {
-    pub fn new(interpreter: &'a mut Interpreter, names: &Rc<IdentifierNames>) -> Resolver<'a> {
+impl Resolver {
+    pub fn new(names: &Rc<IdentifierNames>) -> Resolver {
         Resolver {
             scopes: Vec::new(),
-            interpreter,
+            depths: FnvHashMap::default(),
             func_type: FunctionType::Outside,
             class_type: ClassType::NotAClass,
             class_name: None,
             names: Rc::clone(names),
         }
+    }
+
+    pub fn depth(&self, id: IdentifierUseHandle) -> Option<&usize> {
+        self.depths.get(&id)
     }
 
     fn begin_scope(&mut self) {
@@ -106,8 +109,7 @@ impl<'a> Resolver<'a> {
     fn resolve_local(&mut self, identifier: &IdentifierUse) {
         for i in 0..self.scopes.len() {
             if self.scopes[i].contains_key(&identifier.name) {
-                self.interpreter
-                    .resolve(identifier.use_handle, self.scopes.len() - 1 - i);
+                self.depths.insert(identifier.use_handle, self.scopes.len() - 1 - i);
                 return;
             }
         }

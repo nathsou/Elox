@@ -56,11 +56,13 @@ impl VarDeclStmt {
 #[derive(Clone)]
 pub struct BlockStmt {
     pub stmts: Vec<Stmt>,
+    pub start_pos: Position,
+    pub end_pos: Position,
 }
 
 impl BlockStmt {
-    pub fn to_stmt(stmts: Vec<Stmt>) -> Stmt {
-        Stmt::Block(BlockStmt { stmts })
+    pub fn to_stmt(stmts: Vec<Stmt>, start_pos: Position, end_pos: Position) -> Stmt {
+        Stmt::Block(BlockStmt { stmts, start_pos, end_pos })
     }
 }
 

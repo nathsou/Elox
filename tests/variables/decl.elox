@@ -1,0 +1,8 @@
+
+var G = 6.67408 / 100000000000; // Gravitational constant
+
+var r = 6371 * 1000; // Earth's radius
+var M = 5.972 * 1000000000000000000000000;
+var g = (G * M) / (r * r);
+
+print g; // !expect: 9.819649737724955

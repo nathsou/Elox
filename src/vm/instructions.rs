@@ -25,16 +25,19 @@ pub enum Inst {
     Leq,
     Print,
     Pop,
-    Global(IdentifierHandle),
+    PopN(usize),
+    DefGlobal(IdentifierHandle),
     GetGlobal(IdentifierHandle),
     SetGlobal(IdentifierHandle),
+    GetLocal(usize),
+    SetLocal(usize),
 }
 
 impl Inst {
     pub fn len(&self) -> u8 {
         use Inst::*;
         match self {
-            Const(_) | Global(_) | GetGlobal(_) | SetGlobal(_) => 2,
+            Const(_) | DefGlobal(_) | GetGlobal(_) | SetGlobal(_) | GetLocal(_) | SetLocal(_) | PopN(_) => 2,
             _ => 1,
         }
     }

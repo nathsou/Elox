@@ -1,0 +1,9 @@
+
+var a = "hey elox!";
+
+print a; // !expect: hey elox!
+
+var str = "hey";
+
+print str + " elox!"; // !expect: hey elox!
+print str + " elox!" == a; // !expect: true

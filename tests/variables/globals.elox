@@ -1,0 +1,15 @@
+
+var a = 3;
+var b = 7;
+
+var c = 3 * 7;
+
+print c; // !expect: 21
+
+a = 9;
+
+print a; // !expect: 9
+
+var t;
+
+print t; // !expect: nil

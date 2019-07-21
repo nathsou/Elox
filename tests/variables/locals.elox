@@ -1,0 +1,20 @@
+
+var a = 1;
+
+{
+    var b = 2;
+    var c = 3;
+    {
+        print b; // !expect: 2
+        var d = 4;
+        {
+            var e = 5;
+            print c; // !expect: 3
+            b = 8;
+            print b; // !expect: 8
+        }
+    }
+}
+
+print a; // !expect: 1
+print b; // !expect runtime error: Undefined variable: 'b'

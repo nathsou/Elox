@@ -37,11 +37,12 @@ impl EloxRunner for EloxInterpreter {
 
                 // println!("{:?}", identifier_names);
 
-                let mut interpreter = Interpreter::new(global, &self.host, &names);
-                let mut resolver = Resolver::new(&mut interpreter, &names);
+                let mut resolver = Resolver::new(&names);
 
                 match resolver.resolve(&ast) {
                     Ok(()) => {
+                        let mut interpreter =
+                            Interpreter::new(global, &self.host, &names, resolver);
                         let res = interpreter.interpret(&ast);
                         match res {
                             Ok(()) => return Ok(()),

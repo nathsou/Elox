@@ -1,0 +1,14 @@
+
+print (22 / 7) * 7 == 22; // !expect: true
+print 0 == 0; // !expect: true
+print 0 != 0; // !expect: false
+print "hey" == "hoy"; // !expect: false
+print "hey" != "hoy"; // !expect: true
+print "" == ""; // !expect: true
+print "elox" == "elox"; // !expect: true
+print true == true; // !expect: true
+print true == false; // !expect: false
+print nil == false; // !expect: false
+print nil == true; // !expect: false
+print nil == nil; // !expect: true
+print nil == 0; // !expect: false

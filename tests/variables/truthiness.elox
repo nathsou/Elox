@@ -1,0 +1,12 @@
+
+print true; // !expect: true
+print false; // !expect: false
+print !true; // !expect: false
+print !!true; // !expect: true
+print !false; // !expect: true
+print !nil; // !expect: true
+print !!nil; // !expect: false
+print !!"hey"; // !expect: true
+print !!"0"; // !expect: true
+print !!0; // !expect: true
+print !!3.14; // !expect: true

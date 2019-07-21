@@ -1,2 +1,3 @@
+// #[!vm]
 
 class A < "B" { } // !expect runtime error: Expected superclass name

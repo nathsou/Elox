@@ -14,30 +14,30 @@ mod natives;
 pub mod value;
 
 use crate::parser::{
-    statements::Stmt, IdentifierHandle, IdentifierNames, IdentifierUse, IdentifierUseHandle,
+    statements::Stmt, IdentifierHandle, IdentifierNames, IdentifierUse,
 };
 use environment::Environment;
 use eval_result::EvalResult;
 use execute::Exec;
-use fnv::FnvHashMap;
 use host::Host;
 use std::rc::Rc;
 use value::Value;
+use lexical_scope::Resolver;
 
 pub struct Interpreter {
     global: Environment,
-    depths: FnvHashMap<IdentifierUseHandle, usize>,
+    resolver: Resolver,
     host: Rc<Host>,
     names: Rc<IdentifierNames>,
 }
 
 impl Interpreter {
-    pub fn new(env: Environment, host: &Rc<Host>, names: &Rc<IdentifierNames>) -> Interpreter {
+    pub fn new(env: Environment, host: &Rc<Host>, names: &Rc<IdentifierNames>, resolver: Resolver) -> Interpreter {
         Interpreter {
             global: env,
-            depths: fnv::FnvHashMap::default(),
+            resolver,
             host: Rc::clone(host),
-            names: Rc::clone(&names),
+            names: Rc::clone(names),
         }
     }
 
@@ -49,10 +49,6 @@ impl Interpreter {
         Ok(())
     }
 
-    pub fn resolve(&mut self, identifier: IdentifierUseHandle, depth: usize) {
-        self.depths.insert(identifier, depth);
-    }
-
     pub fn name(&self, handle: IdentifierHandle) -> String {
         self.names[handle].clone()
     }
@@ -62,7 +58,7 @@ impl Interpreter {
     }
 
     pub fn lookup_variable(&self, env: &Environment, identifier: &IdentifierUse) -> Option<Value> {
-        let res = if let Some(&depth) = self.depths.get(&identifier.use_handle) {
+        let res = if let Some(&depth) = self.resolver.depth(identifier.use_handle) {
             env.get(depth, identifier.name)
         } else {
             self.global.get(0, identifier.name)
@@ -81,7 +77,7 @@ impl Interpreter {
         identifier: &IdentifierUse,
         value: Value,
     ) -> bool {
-        if let Some(&depth) = self.depths.get(&identifier.use_handle) {
+        if let Some(&depth) = self.resolver.depth(identifier.use_handle) {
             env.assign(depth, identifier.name, value)
         } else {
             self.global.assign(0, identifier.name, value)
