@@ -10,7 +10,6 @@ class BigInt {
        n.multiples = multiples;
        return n;
    }
-   
 
    clone() {
        var copy = [];
@@ -29,9 +28,9 @@ class BigInt {
       var a = this.multiples;
       var b = other.multiples;
       if (a.length() < b.length()) {
-          var tmp = a;
-          a = b;
+          var tmp = b;
           b = a;
+          a = tmp;
       }
 
       var carry = 0;
@@ -78,4 +77,18 @@ class BigInt {
 
 }
 
-print BigInt(1234).add(BigInt(9678));
+fun fib(n) {
+    if (n == 1) return BigInt(1);
+    n -= 1;
+    var a = BigInt(0);
+    var b = BigInt(1);
+    for (var i = 0; i < n; i++) {
+        var c = a.add(b);
+        a = b;
+        b = c;
+    }
+
+    return b;
+}
+
+print fib(2000);

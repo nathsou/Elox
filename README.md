@@ -2,7 +2,7 @@
 
 Elox for Extended-lox, is a superset of the lox toy language from Bob Nystrom's book [_Crafting Interpreters_](http://www.craftinginterpreters.com/).
 
-It is an interpreted, dynamically typed, objected oriented programming language.
+It is an interpreted or compiled, dynamically typed, objected oriented programming language.
 
 You can test it [here](https://nathsou.github.io/Elox/web/dist/index.html)
 
@@ -20,15 +20,34 @@ Its main additions to lox are :
 
 Elox is written in Rust and can thus target your computer's architecture and [WebAssembly](https://webassembly.org/).
 
+Furthermore, an Elox to wasm compiler is in development
+
 ## Compiling and running
 
 In the project folder: 
 
 ```bash
-$ cargo run --release [file.elox]
+$ cargo run --release --bin [elox | vm | wasm]  [file.elox]
 ```
 
-## Compiling to wasm
+## Compiling to WebAssembly
+
+### Compiling an elox program to wasm
+
+Elox can target wasm directly, it uses the VM compiled bytecode as 
+an intermediate representation which is then translated to WebAssembly
+
+```bash
+$ cargo run --release --bin wasm [file.elox]
+```
+
+this command produces a file named out.wasm which can be run with :
+
+```bash
+$ node run_wasm.js
+```
+
+### Compiling the project to wasm
 
 Using [wasm-pack](https://rustwasm.github.io/wasm-pack/) in the project folder:
 
@@ -48,7 +67,7 @@ $ npm run start
 - [ ] Arrow functions
 - [ ] standard library
  - [ ] Implement [traits](https://www.wikiwand.com/en/Trait_(computer_programming))
- - [ ] Write a compiler targetting wasm directly
+ - [X] Write a compiler targetting wasm directly
  - [ ] Optional type annotations used by a static type checker
  - [ ] Function overloading
  - [ ] 'const' keyword

@@ -1,6 +1,8 @@
 pub mod chunk;
 mod compiler;
 pub mod instructions;
+pub mod target;
+pub mod wasm_module;
 
 use crate::interpreter::eval_result::EvalError;
 use crate::interpreter::host::Host;
@@ -225,10 +227,8 @@ impl EloxVM {
         self.identifiers.clear();
         self.strings.clear();
     }
-}
 
-impl EloxRunner for EloxVM {
-    fn run(&mut self, source: &str) -> EloxResult {
+    pub fn compile(&mut self, source: &str) -> EloxResult {
         let scanner = Scanner::new(source.chars().peekable());
         let ast = Parser::new(scanner.peekable(), &mut self.identifiers).parse();
 
@@ -242,8 +242,19 @@ impl EloxRunner for EloxVM {
             Err(err) => return Err(EloxError::Parser(err)),
         };
 
-        // self.chunk.disassemble("test");
+        self.chunk.disassemble("main");
 
+        Ok(())
+    }
+
+    pub fn chunk(&self) -> &Chunk {
+        &self.chunk
+    }
+}
+
+impl EloxRunner for EloxVM {
+    fn run(&mut self, source: &str) -> EloxResult {
+        self.compile(source)?;
         self.launch()?;
         Ok(())
     }

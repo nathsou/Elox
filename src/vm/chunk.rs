@@ -2,7 +2,7 @@ use super::instructions::{Inst, Value};
 use crate::scanner::token::Position;
 
 pub struct Chunk {
-    code: Vec<Inst>,
+    instructions: Vec<Inst>,
     constants: Vec<Value>,
     positions: Vec<Position>,
 }
@@ -10,14 +10,14 @@ pub struct Chunk {
 impl Chunk {
     pub fn new() -> Chunk {
         Chunk {
-            code: vec![],
+            instructions: vec![],
             constants: vec![],
             positions: vec![],
         }
     }
 
     pub fn write(&mut self, inst: Inst, pos: Position) {
-        self.code.push(inst);
+        self.instructions.push(inst);
         self.positions.push(pos);
     }
 
@@ -38,7 +38,7 @@ impl Chunk {
     pub fn disassemble(&self, name: &str) {
         println!("----- begin {} -----", name);
 
-        for (offset, inst) in self.code.iter().enumerate() {
+        for (offset, inst) in self.instructions.iter().enumerate() {
             println!("{}", self.disassemble_inst(offset, inst));
         }
 
@@ -46,15 +46,26 @@ impl Chunk {
     }
 
     pub fn inst_count(&self) -> usize {
-        self.code.len()
+        self.instructions.len()
     }
 
-    pub fn replace_inst(&mut self, idx: usize, new_inst: Inst) {
-        self.code[idx] = new_inst;
+    // updates a jump instruction once the offset can be computed
+    pub fn patch_jmp(&mut self, start_idx: usize) {
+        let offset = self.inst_count() - start_idx;
+
+        self.instructions[start_idx] = match self.inst_at(start_idx) {
+            Inst::Jmp(_) => Inst::Jmp(offset),
+            Inst::JmpIfTrue(_) => Inst::JmpIfTrue(offset),
+            Inst::JmpIfFalse(_) => Inst::JmpIfFalse(offset),
+            _ => panic!(
+                "Chunk.patch_jmp expected a Jmp instruction, got: {:?}",
+                self.inst_at(start_idx)
+            ),
+        };
     }
 
     pub fn inst_at(&self, idx: usize) -> &Inst {
-        &self.code[idx]
+        &self.instructions[idx]
     }
 
     pub fn pos_at(&self, idx: usize) -> Position {
@@ -102,4 +113,12 @@ impl Chunk {
             format!("{:04x} line {}: {}", offset, self.positions[offset].line, d)
         }
     }
-}
+
+    pub fn const_(&self, idx: usize) -> Option<&Value> {
+        self.constants.get(idx)
+    }
+
+    pub fn instructions(&self) -> &[Inst] {
+        &self.instructions
+    }
+ }

@@ -11,30 +11,18 @@ use fnv::FnvHashMap;
 use std::ops::Deref;
 use std::rc::Rc;
 
-// update a jump instruction once the offset is known
-macro_rules! patch_jmp {
-    ($self: tt, $idx: expr) => {
-        let offset = $self.chunk.inst_count() - $idx;
-
-        $self.chunk.replace_inst(
-            $idx,
-            match $self.chunk.inst_at($idx) {
-                Inst::Jmp(_) => Inst::Jmp(offset),
-                Inst::JmpIfTrue(_) => Inst::JmpIfTrue(offset),
-                Inst::JmpIfFalse(_) => Inst::JmpIfFalse(offset),
-                _ => panic!(
-                    "patch_jmp macro expected a Jmp instruction, got: {:?}",
-                    $self.chunk.inst_at($idx)
-                ),
-            },
-        );
-    };
-}
-
 struct Local {
     handle: IdentifierHandle,
     depth: usize,
 }
+
+enum JumpKind {
+    Unconditional,
+    OnTrue,
+    OnFalse,
+}
+
+use JumpKind::*;
 
 pub struct Compiler<'a> {
     chunk: &'a mut Chunk,
@@ -174,9 +162,20 @@ impl<'a> Compiler<'a> {
         };
     }
 
-    fn emit_jmp(&mut self, inst: Inst, pos: Position) -> usize {
+    fn emit_jmp(&mut self, kind: JumpKind, pos: Position) -> usize {
+        let inst = match kind {
+            Unconditional => Inst::Jmp(0),
+            OnTrue => Inst::JmpIfTrue(0),
+            OnFalse => Inst::JmpIfFalse(0),
+        };
+
         self.emit(inst, pos);
         self.chunk.inst_count() - 1
+    }
+
+    #[inline]
+    fn patch_jmp(&mut self, idx: usize) {
+        self.chunk.patch_jmp(idx);
     }
 
     fn emit_loop(&mut self, loop_start: usize, pos: Position) {
@@ -263,23 +262,21 @@ impl<'a> Compiler<'a> {
 
                 match logical_expr.operator {
                     LogicalOperator::And => {
-                        let short_circuit =
-                            self.emit_jmp(Inst::JmpIfFalse(0), logical_expr.left.pos);
+                        let short_circuit = self.emit_jmp(OnFalse, logical_expr.left.pos);
 
                         // discard the left operand (which is true)
                         self.emit(Inst::Pop, logical_expr.right.pos);
                         self.compile_expr(&logical_expr.right)?;
 
-                        patch_jmp!(self, short_circuit);
+                        self.patch_jmp(short_circuit);
                     }
                     LogicalOperator::Or => {
-                        let short_circuit =
-                            self.emit_jmp(Inst::JmpIfTrue(0), logical_expr.left.pos);
+                        let short_circuit = self.emit_jmp(OnTrue, logical_expr.left.pos);
 
                         self.emit(Inst::Pop, logical_expr.right.pos);
                         self.compile_expr(&logical_expr.right)?;
 
-                        patch_jmp!(self, short_circuit);
+                        self.patch_jmp(short_circuit);
                     }
                 }
             }
@@ -325,13 +322,13 @@ impl<'a> Compiler<'a> {
             Stmt::If(if_stmt) => {
                 self.compile_expr(&if_stmt.condition)?;
 
-                let then_jmp = self.emit_jmp(Inst::JmpIfFalse(0), if_stmt.condition.pos);
+                let then_jmp = self.emit_jmp(OnFalse, if_stmt.condition.pos);
                 // pop the condition
                 self.emit(Inst::Pop, if_stmt.condition.pos);
                 self.compile_stmt(if_stmt.then_branch.deref())?;
 
-                let else_jmp = self.emit_jmp(Inst::Jmp(0), if_stmt.condition.pos);
-                patch_jmp!(self, then_jmp);
+                let else_jmp = self.emit_jmp(Unconditional, if_stmt.condition.pos);
+                self.patch_jmp(then_jmp);
 
                 // pop the condition
                 self.emit(Inst::Pop, if_stmt.condition.pos);
@@ -340,21 +337,21 @@ impl<'a> Compiler<'a> {
                     self.compile_stmt(else_branch.deref())?;
                 }
 
-                patch_jmp!(self, else_jmp);
+                self.patch_jmp(else_jmp);
             }
             Stmt::While(while_stmt) => {
                 let loop_start = self.chunk.inst_count();
 
                 self.compile_expr(&while_stmt.condition)?;
 
-                let exit_jmp = self.emit_jmp(Inst::JmpIfFalse(0), while_stmt.condition.pos);
+                let exit_jmp = self.emit_jmp(OnFalse, while_stmt.condition.pos);
 
                 self.emit(Inst::Pop, while_stmt.condition.pos);
                 self.compile_stmt(while_stmt.body.deref())?;
 
                 self.emit_loop(loop_start, while_stmt.condition.pos);
 
-                patch_jmp!(self, exit_jmp);
+                self.patch_jmp(exit_jmp);
 
                 self.emit(Inst::Pop, while_stmt.condition.pos);
             }
