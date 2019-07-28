@@ -56,8 +56,9 @@ impl EloxRunner for EloxInterpreter {
         }
     }
 
-    fn throw_error(&mut self, err: impl ErrorPosition) {
-        let pos = err.position();
-        (self.host.error)(format!("{}", err), pos.line, pos.col);
+    fn throw_error(&mut self, err: impl ErrorPosition) -> EloxResult {
+        let pos = *err.position();
+        (self.host.error)(pos, format!("{}", err), pos.line, pos.col)?;
+        Ok(())
     }
 }

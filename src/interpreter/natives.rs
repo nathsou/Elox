@@ -39,7 +39,7 @@ impl LoxCallable for Clock {
         _args: Vec<Value>,
         call_pos: Position,
     ) -> EvalResult<Value> {
-        if let Some(now) = (interpreter.host.clock)() {
+        if let Ok(now) = (interpreter.host.clock)(call_pos) {
             return Ok(Value::Number(now));
         }
 

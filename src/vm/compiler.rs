@@ -1,10 +1,10 @@
-use super::{Chunk, Inst, Obj, Value};
+use super::{instructions::FuncObj, Chunk, Inst, Obj, Value};
 use crate::interpreter::lexical_scope::LexicalScopeResolutionError;
 use crate::parser::expressions::{
-    BinaryOperator, Expr, ExprCtx, Literal, LogicalOperator, UnaryOperator,
+    BinaryOperator, Expr, ExprCtx, FuncExpr, Literal, LogicalOperator, UnaryOperator,
 };
 use crate::parser::statements::Stmt;
-use crate::parser::{IdentifierHandle, IdentifierHandlesGenerator};
+use crate::parser::{IdentifierHandle, IdentifierHandlesGenerator, IdentifierUse};
 use crate::runner::{EloxError, EloxResult};
 use crate::scanner::token::Position;
 use fnv::FnvHashMap;
@@ -24,8 +24,14 @@ enum JumpKind {
 
 use JumpKind::*;
 
+pub enum FuncType {
+    SCRIPT, // implicit main function
+    FUNC,
+}
+
 pub struct Compiler<'a> {
-    chunk: &'a mut Chunk,
+    func: &'a mut FuncObj,
+    func_type: FuncType,
     identifiers: &'a mut IdentifierHandlesGenerator,
     strings: &'a mut FnvHashMap<String, Rc<Obj>>,
     scope_depth: usize,
@@ -34,12 +40,14 @@ pub struct Compiler<'a> {
 
 impl<'a> Compiler<'a> {
     pub fn new(
-        chunk: &'a mut Chunk,
+        func: &'a mut FuncObj,
+        func_type: FuncType,
         identifiers: &'a mut IdentifierHandlesGenerator,
         strings: &'a mut FnvHashMap<String, Rc<Obj>>,
     ) -> Compiler<'a> {
         Compiler {
-            chunk,
+            func,
+            func_type,
             identifiers,
             strings,
             scope_depth: 0,
@@ -47,19 +55,19 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn emit(&mut self, inst: Inst, pos: Position) {
-        self.chunk.write(inst, pos);
+        self.func.chunk.write(inst, pos);
     }
 
-    #[inline(always)]
+    #[inline]
     fn emit_constant(&mut self, val: Value, pos: Position) {
-        self.chunk.write_constant(val, pos);
+        self.func.chunk.write_constant(val, pos);
     }
 
     fn get_named_variable(&mut self, handle: IdentifierHandle, pos: Position) -> EloxResult {
         if let Some(idx) = self.resolve_local(handle, pos)? {
-            self.emit(Inst::GetLocal(idx), pos);
+            self.emit(Inst::GetLocal(idx + 1), pos); // + 1 since idx 0 is used by the surrounding func
         } else {
             self.emit(Inst::GetGlobal(handle), pos);
         }
@@ -69,7 +77,7 @@ impl<'a> Compiler<'a> {
 
     fn set_named_variable(&mut self, handle: IdentifierHandle, pos: Position) -> EloxResult {
         if let Some(idx) = self.resolve_local(handle, pos)? {
-            self.emit(Inst::SetLocal(idx), pos);
+            self.emit(Inst::SetLocal(idx + 1), pos); // + 1 since idx 0 is used by the surrounding func
         } else {
             self.emit(Inst::SetGlobal(handle), pos);
         }
@@ -155,6 +163,8 @@ impl<'a> Compiler<'a> {
             pops += 1;
         }
 
+        // println!("POPPPY");
+
         match pops {
             0 => {}
             1 => self.emit(Inst::Pop, pos),
@@ -170,16 +180,16 @@ impl<'a> Compiler<'a> {
         };
 
         self.emit(inst, pos);
-        self.chunk.inst_count() - 1
+        self.func.chunk.inst_count() - 1
     }
 
     #[inline]
     fn patch_jmp(&mut self, idx: usize) {
-        self.chunk.patch_jmp(idx);
+        self.func.chunk.patch_jmp(idx);
     }
 
     fn emit_loop(&mut self, loop_start: usize, pos: Position) {
-        let offset = self.chunk.inst_count() - loop_start;
+        let offset = self.func.chunk.inst_count() - loop_start;
         self.emit(Inst::Loop(offset), pos);
     }
 
@@ -188,9 +198,14 @@ impl<'a> Compiler<'a> {
             self.compile_stmt(stmt)?;
         }
 
-        self.emit(Inst::Ret, Position { line: 0, col: 0 });
+        self.end();
 
-        return Ok(());
+        Ok(())
+    }
+
+    fn end(&mut self) {
+        self.emit(Inst::Nil, Position { line: 0, col: 0 });
+        self.emit(Inst::Ret, Position { line: 0, col: 0 });
     }
 
     fn compile_expr(&mut self, expr_ctx: &ExprCtx) -> EloxResult {
@@ -280,17 +295,99 @@ impl<'a> Compiler<'a> {
                     }
                 }
             }
+            Expr::Func(func_expr) => {
+                self.compile_func(func_expr, FuncType::FUNC)?;
+            }
+            Expr::Call(call_expr) => {
+                self.compile_expr(&call_expr.callee)?;
+                for arg in &call_expr.args {
+                    self.compile_expr(&arg)?;
+                }
+                self.emit(Inst::Call(call_expr.args.len()), call_expr.callee.pos);
+            }
             _ => panic!("Unimplemented expr"),
         }
 
         Ok(())
     }
 
+    fn emit_identifier(&mut self, id: &IdentifierUse) -> EloxResult {
+        // self.emit_constant(obj, id.pos);
+        // self.get_named_variable(id.name, id.pos)?;
+        self.declare_variable(id.name, id.pos)?;
+        self.define_variable(id.name, id.pos);
+        // self.mark_initialized();
+
+        // if self.scope_depth > 0 {
+        //     self.mark_initialized();
+        // }
+
+        Ok(())
+    }
+
+    fn compile_func(&mut self, func_expr: &FuncExpr, type_: FuncType) -> EloxResult {
+        let arity = if let Some(params) = &func_expr.params {
+            params.len()
+        } else {
+            0
+        };
+        let name = if let Some(id) = func_expr.name {
+            self.declare_variable(id.name, id.pos)?;
+            Some(id.name)
+        } else {
+            None
+        };
+        let mut func = FuncObj::new(name, arity);
+        let mut compiler =
+            Compiler::new(&mut func, type_, &mut self.identifiers, &mut self.strings);
+
+        compiler.begin_scope();
+
+        if let Some(params) = &func_expr.params {
+            for param in params {
+                compiler.emit_identifier(param.identifier())?;
+            }
+        }
+
+        for stmt in &func_expr.body {
+            compiler.compile_stmt(stmt)?;
+        }
+        compiler.end();
+        compiler.end_scope(func_expr.pos);
+
+        func.chunk
+            .disassemble(&format!("<fn {:?}>", func_expr.name));
+        let func_val = Value::Object(Rc::new(Obj::Func(Rc::new(func))));
+        self.emit_constant(func_val, func_expr.pos);
+
+        if let Some(id) = func_expr.name {
+            self.define_variable(id.name, id.pos);
+        }
+
+        Ok(())
+    }
+
+    fn define_variable(&mut self, global: IdentifierHandle, pos: Position) {
+        if self.scope_depth > 0 {
+            self.mark_initialized();
+            return;
+        }
+
+        self.emit(Inst::DefGlobal(global), pos);
+    }
+
     fn compile_stmt(&mut self, stmt: &Stmt) -> EloxResult {
         match stmt {
             Stmt::Expr(expr_stmt) => {
+                let pop = match expr_stmt.expr.expr {
+                    Expr::Func(_) => false,
+                    _ => true,
+                };
+
                 self.compile_expr(&expr_stmt.expr)?;
-                self.emit(Inst::Pop, expr_stmt.expr.pos);
+                if pop {
+                    self.emit(Inst::Pop, expr_stmt.expr.pos);
+                }
             }
             Stmt::Print(print_stmt) => {
                 self.compile_expr(&print_stmt.value)?;
@@ -303,14 +400,8 @@ impl<'a> Compiler<'a> {
                 } else {
                     self.emit(Inst::Nil, var_decl.identifier.pos);
                 }
-                self.mark_initialized();
 
-                if self.scope_depth == 0 {
-                    self.emit(
-                        Inst::DefGlobal(var_decl.identifier.name),
-                        var_decl.identifier.pos,
-                    );
-                }
+                self.define_variable(var_decl.identifier.name, var_decl.pos);
             }
             Stmt::Block(block) => {
                 self.begin_scope();
@@ -340,7 +431,7 @@ impl<'a> Compiler<'a> {
                 self.patch_jmp(else_jmp);
             }
             Stmt::While(while_stmt) => {
-                let loop_start = self.chunk.inst_count();
+                let loop_start = self.func.chunk.inst_count();
 
                 self.compile_expr(&while_stmt.condition)?;
 
@@ -354,6 +445,14 @@ impl<'a> Compiler<'a> {
                 self.patch_jmp(exit_jmp);
 
                 self.emit(Inst::Pop, while_stmt.condition.pos);
+            }
+            Stmt::Return(ret_stmt) => {
+                if let Some(ret) = &ret_stmt.value {
+                    self.compile_expr(ret)?;
+                    self.emit(Inst::Ret, ret_stmt.pos);
+                } else {
+                    self.emit(Inst::Nil, Position { line: 0, col: 0 });
+                }
             }
             _ => panic!("Unimplemented stmt"),
         }

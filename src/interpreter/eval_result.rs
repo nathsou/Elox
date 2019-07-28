@@ -20,6 +20,7 @@ pub enum EvalError {
     SuperclassMustBeAClass(Position, String),
     ToStringMethodMustReturnAString(Position, String, String),
     ArrayIndexOutOfBounds(Position, usize, usize),
+    StackOverflow(Position, usize),
     Return(Value),
 }
 
@@ -79,6 +80,7 @@ impl fmt::Display for EvalError {
                 "Index out of bounds: tried to access value at index {} on an array of length {}",
                 idx, len
             ),
+            EvalError::StackOverflow(_, max) => write!(f, "Stack overflox: max frames = {}", max),
         }
     }
 }
@@ -98,6 +100,7 @@ impl ErrorPosition for EvalError {
             | SuperclassMustBeAClass(pos, _)
             | ToStringMethodMustReturnAString(pos, _, _)
             | ArrayIndexOutOfBounds(pos, _, _)
+            | StackOverflow(pos, _)
             | CouldNotGetTime(pos) => pos,
             Return(_) => unreachable!(),
         }

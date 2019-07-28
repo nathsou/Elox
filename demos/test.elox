@@ -1,9 +1,33 @@
 
-print 1 % 4;
-print 2 % 4;
-print 3 % 4;
-print 4 % 4;
-print 5 % 4;
-print 6 % 4;
-print 7 % 4;
-print 8 % 4;
+// fun is_prime(n) {
+//     if (n < 2) return false;
+//     if (n == 2) return true;
+//     if (n % 2 == 0) return false;
+
+//     var i_sq = 9;
+
+//     for (var i = 3; i_sq <= n; i += 2) {
+//         if (n % i == 0) return false;
+//         i_sq += 2 * i + 1;
+//     }
+
+//     return true;
+// }
+
+// var count = 0;
+// for (var i = 0; i < 100000; i++) {
+//     if (is_prime(i)) {
+//         count++;
+//     }
+// }
+
+// print count;
+
+fun fib(n) {
+  if (n < 2) return n;
+  return fib(n - 2) + fib(n - 1);
+}
+
+var start = clock();
+print fib(35);
+print clock() - start;

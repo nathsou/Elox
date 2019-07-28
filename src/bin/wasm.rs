@@ -6,5 +6,7 @@ use elox::vm::target::WasmTarget;
 
 fn main() {
     let mut wasm = WasmTarget::new();
-    wasm.run_from_std_args();
+    if let Err(err) = wasm.run_from_std_args() {
+        println!("{}", err);
+    }
 }

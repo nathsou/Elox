@@ -1,4 +1,3 @@
-// #[!vm]
 
 fun iReturnNil() {
 

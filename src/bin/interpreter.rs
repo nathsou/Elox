@@ -6,5 +6,7 @@ use crate::elox::runner::EloxFileAndPromptRunner;
 
 fn main() {
     let mut elox = EloxInterpreter::new(Host::default());
-    elox.run_from_std_args();
+    if let Err(err) = elox.run_from_std_args() {
+        println!("{}", err);
+    }
 }

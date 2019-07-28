@@ -42,13 +42,15 @@ impl PrintStmt {
 pub struct VarDeclStmt {
     pub identifier: IdentifierUse,
     pub initializer: Option<ExprCtx>,
+    pub pos: Position,
 }
 
 impl VarDeclStmt {
-    pub fn to_stmt(identifier: IdentifierUse, initializer: Option<ExprCtx>) -> Stmt {
+    pub fn to_stmt(identifier: IdentifierUse, initializer: Option<ExprCtx>, pos: Position) -> Stmt {
         Stmt::VarDecl(VarDeclStmt {
             identifier,
             initializer,
+            pos,
         })
     }
 }

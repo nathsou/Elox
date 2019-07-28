@@ -15,6 +15,10 @@ use std::iter::Peekable;
 pub struct Identifier {}
 
 impl Identifier {
+    pub fn reserved_count() -> usize {
+        9
+    }
+
     pub fn this() -> IdentifierHandle {
         0
     }
@@ -439,7 +443,7 @@ impl<'a> Parser<'a> {
                 return Err(ParserError::ExpectedSemicolonAfterExpr(self.pos));
             }
 
-            return Ok(VarDeclStmt::to_stmt(identifier, initializer));
+            return Ok(VarDeclStmt::to_stmt(identifier, initializer, self.pos));
         } else {
             if let Some(Ok(tok)) = self.tokens.peek() {
                 return Err(ParserError::ExpectedVarName(self.pos, tok.lexeme.clone()));
@@ -626,7 +630,11 @@ impl<'a> Parser<'a> {
         }
 
         if self.consume(RightBrace)? {
-            return Ok(BlockStmt { stmts, start_pos, end_pos: self.pos });
+            return Ok(BlockStmt {
+                stmts,
+                start_pos,
+                end_pos: self.pos,
+            });
         }
 
         Err(ParserError::ExpectedRightBraceAfterBlock(self.pos))
@@ -658,7 +666,7 @@ impl<'a> Parser<'a> {
     }
 
     fn assignment(&mut self) -> ParserResult<ExprCtx> {
-        let expr_ctx = self.or_expr()?;
+        let left_val = self.or_expr()?;
 
         let next_token = self.tokens.peek();
 
@@ -673,13 +681,13 @@ impl<'a> Parser<'a> {
                     self.next();
                     let val = self.assignment()?;
                     let op = BinaryOperator::from_token_type(&token_type).unwrap();
-                    Some(BinaryExpr::new(self.pos, expr_ctx.clone(), op, val))
+                    Some(BinaryExpr::new(self.pos, left_val.clone(), op, val))
                 }
                 PlusPlus => {
                     self.next();
                     Some(BinaryExpr::new(
                         self.pos,
-                        expr_ctx.clone(),
+                        left_val.clone(),
                         BinaryOperator::Plus,
                         Literal::new(self.pos, Literal::Number(1f64)),
                     ))
@@ -688,7 +696,7 @@ impl<'a> Parser<'a> {
                     self.next();
                     Some(BinaryExpr::new(
                         self.pos,
-                        expr_ctx.clone(),
+                        left_val.clone(),
                         BinaryOperator::Minus,
                         Literal::new(self.pos, Literal::Number(1f64)),
                     ))
@@ -697,7 +705,7 @@ impl<'a> Parser<'a> {
             };
 
             if let Some(right_val) = right_value {
-                match expr_ctx.expr {
+                match left_val.expr {
                     Expr::Var(v) => return Ok(AssignExpr::new(self.pos, v.identifier, right_val)),
                     Expr::Get(g) => {
                         return Ok(SetExpr::new(self.pos, g.property, g.object, right_val))
@@ -707,7 +715,7 @@ impl<'a> Parser<'a> {
                             if access.property.name == Identifier::get() {
                                 let set = self
                                     .identifiers
-                                    .next_with_handle(Identifier::set(), expr_ctx.pos);
+                                    .next_with_handle(Identifier::set(), left_val.pos);
                                 let mut args = call_expr_ctx.args;
                                 args.push(right_val);
                                 return Ok(CallExpr::new(
@@ -727,7 +735,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        return Ok(expr_ctx);
+        return Ok(left_val);
     }
 
     fn match_equality(&mut self) -> ParserResult<Option<BinaryOperator>> {

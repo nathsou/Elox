@@ -27,7 +27,7 @@ Furthermore, an Elox to wasm compiler is in development
 In the project folder: 
 
 ```bash
-$ cargo run --release --bin [elox | vm | wasm]  [file.elox]
+$ cargo run --release --bin [elox | vm | wasm] [file.elox]
 ```
 
 ## Compiling to WebAssembly

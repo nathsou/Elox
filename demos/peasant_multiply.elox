@@ -1,0 +1,25 @@
+fun peasant_mult(x, y) {
+    var prod = 0;
+
+    if (x > y) {
+        var tmp = x;
+        x = y;
+        y = tmp;
+    }
+
+    while (x != 0) {
+        print x + ", " + y;
+        if (x % 2 == 1) {
+            prod += y;
+            x = (x - 1) / 2;
+        } else {
+            x /= 2;
+        }
+
+        y += y;
+    }
+
+    return prod;
+}
+
+print peasant_mult(71, 3);

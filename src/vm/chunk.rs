@@ -1,6 +1,7 @@
 use super::instructions::{Inst, Value};
 use crate::scanner::token::Position;
 
+#[derive(Debug, Clone)]
 pub struct Chunk {
     instructions: Vec<Inst>,
     constants: Vec<Value>,
@@ -17,6 +18,7 @@ impl Chunk {
     }
 
     pub fn write(&mut self, inst: Inst, pos: Position) {
+        // println!("emit: {:?}", inst);
         self.instructions.push(inst);
         self.positions.push(pos);
     }
@@ -31,11 +33,12 @@ impl Chunk {
         self.constants.len() - 1
     }
 
-    pub fn read_const(&self, idx: &usize) -> Value {
-        self.constants[*idx].clone()
+    pub fn read_const(&self, idx: usize) -> Value {
+        self.constants[idx].clone()
     }
 
     pub fn disassemble(&self, name: &str) {
+        return;
         println!("----- begin {} -----", name);
 
         for (offset, inst) in self.instructions.iter().enumerate() {
@@ -105,6 +108,7 @@ impl Chunk {
             JmpIfTrue(offset) => format!("jmp if true {}", offset),
             JmpIfFalse(offset) => format!("jmp if false {}", offset),
             Loop(offset) => format!("jmp -{}", offset),
+            Call(args_count) => format!("call {}", args_count),
         };
 
         if offset > 0 && self.positions[offset - 1].line == self.positions[offset].line {
@@ -114,6 +118,10 @@ impl Chunk {
         }
     }
 
+    pub fn constants(&self) -> &Vec<Value> {
+        &self.constants
+    }
+
     pub fn const_(&self, idx: usize) -> Option<&Value> {
         self.constants.get(idx)
     }
@@ -121,4 +129,4 @@ impl Chunk {
     pub fn instructions(&self) -> &[Inst] {
         &self.instructions
     }
- }
+}

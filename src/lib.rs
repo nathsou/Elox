@@ -8,6 +8,8 @@ pub mod vm;
 
 use crate::interpreter::host::Host;
 use runner::{interp::EloxInterpreter, EloxRunner};
+use crate::runner::EloxResult;
+use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(raw_module = "../web/index.js")]
@@ -18,19 +20,22 @@ extern "C" {
 }
 
 #[wasm_bindgen]
-pub fn run(source: &str) {
+pub fn run(source: &str) -> EloxResult {
     let host = Host {
-        print: Box::new(|msg| {
+        print: Rc::new(|_, msg| {
             log(msg);
+            Ok(())
         }),
-        error: Box::new(|err, line, col| {
+        error: Rc::new(|_, err, line, col| {
             error(err, line, col);
+            Ok(())
         }),
-        clock: Box::new(|| Some(clock())),
+        clock: Rc::new(|_| Ok(clock())),
     };
 
     let mut elox = EloxInterpreter::new(host);
     if let Err(err) = elox.run(source) {
-        elox.throw_error(err);
+        elox.throw_error(err)?;
     }
+    Ok(())
 }

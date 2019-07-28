@@ -109,7 +109,8 @@ impl Resolver {
     fn resolve_local(&mut self, identifier: &IdentifierUse) {
         for i in 0..self.scopes.len() {
             if self.scopes[i].contains_key(&identifier.name) {
-                self.depths.insert(identifier.use_handle, self.scopes.len() - 1 - i);
+                self.depths
+                    .insert(identifier.use_handle, self.scopes.len() - 1 - i);
                 return;
             }
         }

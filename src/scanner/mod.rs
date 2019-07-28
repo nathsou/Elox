@@ -255,7 +255,7 @@ impl<'a> Scanner<'a> {
     fn identifier(&self) -> TokenType {
         use TokenType::*;
 
-        match self.current_lexeme.as_ref() {
+        match self.current_lexeme.as_str() {
             "and" => And,
             "class" => Class,
             "else" => Else,

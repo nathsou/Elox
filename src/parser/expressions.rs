@@ -93,25 +93,25 @@ impl fmt::Display for BinaryOperator {
 
 impl BinaryOperator {
     pub fn from_token_type(token_type: &TokenType) -> Option<BinaryOperator> {
-        match token_type {
-            TokenType::Minus => Some(BinaryOperator::Minus),
-            TokenType::Plus => Some(BinaryOperator::Plus),
-            TokenType::Slash => Some(BinaryOperator::Slash),
-            TokenType::Star => Some(BinaryOperator::Star),
-            TokenType::Percent => Some(BinaryOperator::Percent),
-            TokenType::BangEqual => Some(BinaryOperator::BangEqual),
-            TokenType::Greater => Some(BinaryOperator::Greater),
-            TokenType::GreaterEqual => Some(BinaryOperator::GreaterEqual),
-            TokenType::Less => Some(BinaryOperator::LessEqual),
-            TokenType::PlusEqual => Some(BinaryOperator::Plus),
-            TokenType::PlusPlus => Some(BinaryOperator::Plus),
-            TokenType::MinusEqual => Some(BinaryOperator::Minus),
-            TokenType::MinusMinus => Some(BinaryOperator::Minus),
-            TokenType::StarEqual => Some(BinaryOperator::Star),
-            TokenType::PercentEqual => Some(BinaryOperator::Percent),
-            TokenType::SlashEqual => Some(BinaryOperator::Slash),
-            _ => None,
-        }
+        Some(match token_type {
+            TokenType::Minus => BinaryOperator::Minus,
+            TokenType::Plus => BinaryOperator::Plus,
+            TokenType::Slash => BinaryOperator::Slash,
+            TokenType::Star => BinaryOperator::Star,
+            TokenType::Percent => BinaryOperator::Percent,
+            TokenType::BangEqual => BinaryOperator::BangEqual,
+            TokenType::Greater => BinaryOperator::Greater,
+            TokenType::GreaterEqual => BinaryOperator::GreaterEqual,
+            TokenType::Less => BinaryOperator::LessEqual,
+            TokenType::PlusEqual => BinaryOperator::Plus,
+            TokenType::PlusPlus => BinaryOperator::Plus,
+            TokenType::MinusEqual => BinaryOperator::Minus,
+            TokenType::MinusMinus => BinaryOperator::Minus,
+            TokenType::StarEqual => BinaryOperator::Star,
+            TokenType::PercentEqual => BinaryOperator::Percent,
+            TokenType::SlashEqual => BinaryOperator::Slash,
+            _ => return None,
+        })
     }
 }
 

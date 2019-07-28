@@ -9,6 +9,7 @@ use crate::interpreter::Interpreter;
 use crate::parser::expressions::{Expr, ExprCtx};
 use crate::parser::statements::Stmt;
 use crate::parser::{Identifier, IdentifierHandle};
+use crate::runner::EloxError;
 use fnv::FnvHashMap;
 use std::rc::Rc;
 
@@ -21,8 +22,14 @@ impl Exec for Interpreter {
         match stmt {
             Stmt::Print(ps) => {
                 let val = self.eval(env, &ps.value)?;
-                (self.host.print)(val.to_str(self, ps.pos)?);
-                Ok(())
+                if let Err(err) = (self.host.print)(ps.pos, val.to_str(self, ps.pos)?) {
+                    match err {
+                        EloxError::Eval(eval_err) => Err(eval_err),
+                        _ => unreachable!(),
+                    }
+                } else {
+                    Ok(())
+                }
             }
             Stmt::Expr(expr_stmt) => {
                 self.eval(env, &expr_stmt.expr)?;

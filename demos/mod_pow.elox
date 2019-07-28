@@ -3,6 +3,7 @@ fun floor(x) {
   return x - x % 1;
 } 
 
+// (b ** n) % m
 fun modPow(b, n, m) {
   var res = 1;
   

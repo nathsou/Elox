@@ -154,7 +154,8 @@ impl Value {
 
                 use CallableValue::*;
                 Ok(match callable {
-                    Function(_) | Native(_) => format!("<function {}>", name),
+                    Function(_)=> format!("<function {}>", name),
+                    Native(_) => format!("<native function>"),
                     Class(_) => format!("<class {}>", name),
                 })
             }

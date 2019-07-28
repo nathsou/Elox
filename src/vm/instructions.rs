@@ -1,4 +1,5 @@
 use crate::parser::IdentifierHandle;
+use super::{EloxError, Position, Chunk};
 use fnv::FnvHashMap;
 use std::fmt;
 use std::rc::Rc;
@@ -6,7 +7,7 @@ use std::rc::Rc;
 #[derive(Clone, Debug)]
 pub enum Inst {
     Ret,
-    Const(usize),
+    Const(usize), // index in the constants table
     Neg,
     Add,
     Sub,
@@ -25,16 +26,17 @@ pub enum Inst {
     Leq,
     Print,
     Pop,
-    PopN(usize),
+    PopN(usize), // n
     DefGlobal(IdentifierHandle),
     GetGlobal(IdentifierHandle),
     SetGlobal(IdentifierHandle),
-    GetLocal(usize),
-    SetLocal(usize),
-    Jmp(usize),
-    JmpIfFalse(usize),
-    JmpIfTrue(usize),
-    Loop(usize), // Jumps backwards
+    GetLocal(usize),   // stack offset
+    SetLocal(usize),   // stack offset
+    Jmp(usize),        // addr
+    JmpIfFalse(usize), // addr
+    JmpIfTrue(usize),  // addr
+    Loop(usize),       // Jumps backwards to addr
+    Call(usize),       // args count
 }
 
 #[derive(Clone, Debug)]
@@ -45,15 +47,62 @@ pub enum Value {
     Object(Rc<Obj>),
 }
 
+#[derive(Debug, Clone)]
+pub struct FuncObj {
+    pub arity: usize,
+    pub chunk: Chunk,
+    pub name: Option<IdentifierHandle>,
+}
+
+impl FuncObj {
+    pub fn new(name: Option<IdentifierHandle>, arity: usize) -> FuncObj {
+        FuncObj {
+            name,
+            arity,
+            chunk: Chunk::new(),
+        }
+    }
+
+    pub fn main_func_name() -> IdentifierHandle {
+        usize::max_value()
+    }
+}
+
+pub type NativeFn = (Fn(Position, Vec<Value>) -> Result<Value, EloxError>);
+
+pub struct NativeFunc {
+    pub name: IdentifierHandle,
+    pub arity: usize,
+    pub func: Box<NativeFn>,
+}
+
+impl fmt::Debug for NativeFunc {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "<native function>")
+    }
+}
+
 #[derive(Debug)]
 pub enum Obj {
     Str(String),
+    Func(Rc<FuncObj>),
+    Native(Rc<NativeFunc>),
 }
 
 impl fmt::Display for Obj {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Obj::Str(string) => write!(f, "{}", string),
+            Obj::Func(func) => write!(
+                f,
+                "<function {}>",
+                if let Some(name) = func.name {
+                    format!("{}", name)
+                } else {
+                    "anonymous".into()
+                }
+            ),
+            Obj::Native(_) => write!(f, "<native function>"),
         }
     }
 }
@@ -62,16 +111,10 @@ impl Obj {
     pub fn type_(&self) -> String {
         match self {
             Obj::Str(_) => "string",
+            Obj::Func(_) => "function",
+            Obj::Native(_) => "native function",
         }
         .into()
-    }
-}
-
-impl PartialEq for Obj {
-    fn eq(&self, other: &Obj) -> bool {
-        match (self, other) {
-            (Obj::Str(ref a), Obj::Str(ref b)) => a == b,
-        }
     }
 }
 

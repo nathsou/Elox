@@ -1,5 +1,4 @@
 extern crate byteorder;
-
 use byteorder::{ByteOrder, LittleEndian};
 
 // Encoding:
@@ -25,6 +24,7 @@ enum WasmSection {
 // https://webassembly.github.io/spec/core/binary/types.html
 #[derive(Copy, Clone, PartialEq)]
 pub enum ValueType {
+    I32 = 0x7f,
     I64 = 0x7e,
     F64 = 0x7c,
 }
@@ -91,18 +91,6 @@ impl Encoder for Vec<u8> {
     }
 }
 
-macro_rules! encode_vec {
-    ( $( $x:expr ),* ) => {
-        {
-            let mut temp_vec = Vec::new();
-            $(
-                temp_vec.push($x);
-            )*
-            temp_vec.encode()
-        }
-    };
-}
-
 macro_rules! flat_vec {
     ( $( $x:expr ),* ) => {
         {
@@ -155,7 +143,7 @@ fn flatten<T>(vecs: Vec<Vec<T>>) -> Vec<T> {
     vecs.into_iter().flatten().collect()
 }
 
-fn encode_vec(v: Vec<u8>) -> Vec<u8> {
+pub fn encode_vec(v: Vec<u8>) -> Vec<u8> {
     let mut encoded = Vec::with_capacity(v.len() + 1);
     encoded.extend(&uleb128(v.len()));
     encoded.extend(v);
@@ -173,12 +161,9 @@ fn encode_vecs(vecs: Vec<Vec<u8>>) -> Vec<u8> {
 
 impl Encoder for u32 {
     fn encode(&self) -> Vec<u8> {
-        let x = self.to_le();
-        let b1: u8 = ((x >> 24) & 0xff) as u8;
-        let b2: u8 = ((x >> 16) & 0xff) as u8;
-        let b3: u8 = ((x >> 8) & 0xff) as u8;
-        let b4: u8 = (x & 0xff) as u8;
-        vec![b1, b2, b3, b4]
+        let mut buf = [0; 4];
+        LittleEndian::write_u32(&mut buf, *self);
+        buf.to_vec()
     }
 }
 
@@ -261,35 +246,39 @@ pub struct Locals {
 }
 
 impl Locals {
+    // run-length sequence of types
     pub fn from_types(types: &[ValueType]) -> Vec<Locals> {
         let mut locals = vec![];
 
-        let mut f64_count = 0;
-        let mut i64_count = 0;
+        match types.len() {
+            0 => {}
+            1 => {
+                locals.push(Locals {
+                    count: 1,
+                    type_: types[0],
+                });
+            }
+            _ => {
+                let mut prev_type = types[0];
+                let mut count = 1;
 
-        for type_ in types {
-            match type_ {
-                ValueType::F64 => {
-                    f64_count += 1;
+                for (idx, &type_) in types.iter().skip(1).enumerate() {
+                    if prev_type == type_ {
+                        count += 1;
+                    } else {
+                        locals.push(Locals {
+                            count,
+                            type_: prev_type,
+                        });
+                        prev_type = type_;
+                        count = 1;
+                    }
+                    // we skipped the first one
+                    if idx == types.len() - 2 {
+                        locals.push(Locals { count, type_ });
+                    }
                 }
-                ValueType::I64 => {
-                    i64_count += 1;
-                }
-            };
-        }
-
-        if f64_count != 0 {
-            locals.push(Locals {
-                count: f64_count,
-                type_: ValueType::F64,
-            });
-        }
-
-        if i64_count != 0 {
-            locals.push(Locals {
-                count: i64_count,
-                type_: ValueType::I64,
-            });
+            }
         }
 
         locals
@@ -316,22 +305,31 @@ impl Encoder for Vec<Locals> {
     }
 }
 
+// http://webassembly.github.io/spec/core/appendix/index-instructions.html
 #[derive(Clone)]
 pub enum WasmInst {
     Consti32(i32),
     Constf64(f64),
     GetLocal(u32),
+    SetLocal(u32),
+    GetGlobal(u32),
+    SetGlobal(u32),
     End,
     Addf64,
     Subf64,
     Mulf64,
     Divf64,
+    Floorf64,
     Negf64,
     RemUi64,
     TruncF64ToI64,
     ConvertI64ToF64,
     Drop_,
     Call(FuncIdx),
+    Loadf64(u32),
+    Loadi32(u32),
+    Storef64(u32),
+    Storei32(u32),
 }
 
 impl WasmInst {
@@ -341,17 +339,25 @@ impl WasmInst {
             Consti32(_) => 0x41,
             Constf64(_) => 0x44,
             GetLocal(_) => 0x20,
+            SetLocal(_) => 0x21,
+            GetGlobal(_) => 0x23,
+            SetGlobal(_) => 0x24,
             End => 0x0b,
             Addf64 => 0xa0,
             Subf64 => 0xa1,
             Mulf64 => 0xa2,
             Divf64 => 0xa3,
+            Floorf64 => 0x9c,
             Negf64 => 0x9a,
             RemUi64 => 0x82,
             TruncF64ToI64 => 0xb0,
             ConvertI64ToF64 => 0xb9,
             Drop_ => 0x1a,
             Call(_) => 0x10,
+            Loadf64(_) => 0x2b,
+            Loadi32(_) => 0x28,
+            Storef64(_) => 0x39,
+            Storei32(_) => 0x36,
         }
     }
 }
@@ -371,18 +377,17 @@ impl Encoder for WasmInst {
     fn encode(&self) -> Vec<u8> {
         use WasmInst::*;
         match self {
-            Consti32(val) => {
-                let mut buf = [0; 4];
-                LittleEndian::write_i32(&mut buf, *val);
-                flat_vec![vec![self.opcode()], buf.to_vec()]
-            }
+            Consti32(val) => flat_vec![vec![self.opcode()], sleb128(*val as isize)],
             Constf64(val) => {
                 let mut buf = [0; 8];
                 LittleEndian::write_f64(&mut buf, *val);
                 flat_vec![vec![self.opcode()], buf.to_vec()]
             }
-            GetLocal(idx) => flat_vec![vec![self.opcode()], uleb128(*idx as usize)],
+            GetLocal(idx) | SetLocal(idx) => flat_vec![vec![self.opcode()], uleb128(*idx as usize)],
             Call(func_idx) => flat_vec![vec![self.opcode()], uleb128(*func_idx)],
+            Loadi32(idx) | Loadf64(idx) | Storef64(idx) | Storei32(idx) => {
+                flat_vec![vec![self.opcode()], uleb128(*idx as usize)]
+            }
             _ => vec![self.opcode()],
         }
     }
@@ -466,8 +471,11 @@ pub struct WasmModule {
     type_section: TypeSection,
     import_section: Option<ImportSection>,
     func_section: FuncSection,
-    code_section: CodeSection,
+    memory_section: MemorySection,
+    globals: GlobalSection,
     start_section: Option<StartSection>,
+    code_section: CodeSection,
+    data_section: DataSection,
     imports_count: usize,
 }
 
@@ -477,8 +485,11 @@ impl WasmModule {
             type_section: TypeSection::new(),
             import_section: None,
             func_section: FuncSection::new(),
+            memory_section: MemorySection::default(),
+            globals: GlobalSection::new(),
             start_section: None,
             code_section: CodeSection::new(),
+            data_section: DataSection::new(),
             imports_count: 0,
         }
     }
@@ -507,6 +518,14 @@ impl WasmModule {
         imports.add_func(entry);
         self.imports_count += 1;
     }
+
+    pub fn add_data_init(&mut self, data_initializer: DataInitializer) {
+        self.data_section.add(data_initializer);
+    }
+
+    pub fn add_global(&mut self, global: Global) -> GlobalIdx {
+        self.globals.add(global)
+    }
 }
 
 impl<E: Encoder> Encoder for Option<E> {
@@ -521,7 +540,7 @@ impl<E: Encoder> Encoder for Option<E> {
 
 impl Encoder for WasmModule {
     fn encode(&self) -> Vec<u8> {
-        flat_vec![
+        let encoded = flat_vec![
             vec![
                 0x00, 0x61, 0x73, 0x6d, // magic cookie "\0asm"
                 0x01, 0x00, 0x00, 0x00 // wasm version
@@ -529,9 +548,14 @@ impl Encoder for WasmModule {
             self.type_section.encode(),
             self.import_section.encode(),
             self.func_section.encode(),
+            self.memory_section.encode(),
+            self.globals.encode(),
             self.start_section.encode(),
-            self.code_section.encode()
-        ]
+            self.code_section.encode(),
+            self.data_section.encode()
+        ];
+
+        encoded
     }
 }
 
@@ -642,6 +666,211 @@ impl Encoder for FuncImportEntry {
     }
 }
 
+pub enum Initializer {
+    Constf64(f64),
+    Consti32(i32),
+    GetGlobal(u32),
+}
+
+impl Initializer {
+    pub fn to_wasm_inst(&self) -> WasmInst {
+        match self {
+            Initializer::Constf64(val) => WasmInst::Constf64(*val),
+            Initializer::GetGlobal(idx) => WasmInst::GetGlobal(*idx),
+            Initializer::Consti32(idx) => WasmInst::Consti32(*idx),
+        }
+    }
+}
+
+impl Encoder for Initializer {
+    fn encode(&self) -> Vec<u8> {
+        let mut encoded = self.to_wasm_inst().encode();
+        encoded.push(WasmInst::End.opcode());
+        encoded
+    }
+}
+
+// https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#global-description
+pub struct Global {
+    type_: ValueType,
+    mutable: bool,
+    initializer: Initializer,
+}
+
+impl Global {
+    fn new_(type_: ValueType, init: Initializer, mutable: bool) -> Global {
+        Global {
+            type_,
+            mutable,
+            initializer: init,
+        }
+    }
+
+    pub fn new_immutable(type_: ValueType, init: Initializer) -> Global {
+        Global::new_(type_, init, false)
+    }
+
+    pub fn new(type_: ValueType, init: Initializer) -> Global {
+        Global::new_(type_, init, true)
+    }
+}
+
+impl Encoder for Global {
+    fn encode(&self) -> Vec<u8> {
+        flat_vec![
+            vec![self.type_ as u8, if self.mutable { 1 } else { 0 }],
+            self.initializer.encode()
+        ]
+    }
+}
+
+struct GlobalSection {
+    globals: Vec<Global>,
+}
+
+pub type GlobalIdx = usize;
+
+impl GlobalSection {
+    pub fn new() -> GlobalSection {
+        GlobalSection { globals: vec![] }
+    }
+
+    pub fn add(&mut self, global: Global) -> GlobalIdx {
+        self.globals.push(global);
+        self.globals.len() - 1
+    }
+}
+
+impl Encoder for GlobalSection {
+    fn encode(&self) -> Vec<u8> {
+        encode_section(
+            WasmSection::Global,
+            encode_vecs(self.globals.iter().map(|g| g.encode()).collect()),
+        )
+    }
+}
+
+struct ResizableLimits {
+    flags: u32,
+    min: u32,
+}
+
+impl Default for ResizableLimits {
+    fn default() -> ResizableLimits {
+        ResizableLimits { flags: 0, min: 1 }
+    }
+}
+
+impl Encoder for ResizableLimits {
+    fn encode(&self) -> Vec<u8> {
+        flat_vec![uleb128(self.flags as usize), uleb128(self.min as usize)]
+    }
+}
+
+struct LinearMemoryDescription {
+    limits: ResizableLimits,
+}
+
+impl Default for LinearMemoryDescription {
+    fn default() -> LinearMemoryDescription {
+        LinearMemoryDescription {
+            limits: ResizableLimits::default(),
+        }
+    }
+}
+
+impl Encoder for LinearMemoryDescription {
+    fn encode(&self) -> Vec<u8> {
+        self.limits.encode()
+    }
+}
+
+struct MemorySection {
+    descriptions: Vec<LinearMemoryDescription>,
+}
+
+impl MemorySection {
+    pub fn new(description: LinearMemoryDescription) -> MemorySection {
+        MemorySection {
+            descriptions: vec![description],
+        }
+    }
+}
+
+impl Default for MemorySection {
+    fn default() -> MemorySection {
+        MemorySection::new(LinearMemoryDescription::default())
+    }
+}
+
+impl Encoder for MemorySection {
+    fn encode(&self) -> Vec<u8> {
+        encode_section(
+            WasmSection::Memory,
+            encode_vecs(self.descriptions.iter().map(|m| m.encode()).collect()),
+        )
+    }
+}
+
+pub type MemoryIdx = usize;
+
+pub struct DataInitializer {
+    mem_idx: MemoryIdx,
+    offset: Initializer,
+    data: Vec<u8>,
+}
+
+impl DataInitializer {
+    pub fn new(mem_idx: MemoryIdx, offset: Initializer, data: &[u8]) -> DataInitializer {
+        DataInitializer {
+            mem_idx,
+            offset,
+            data: data.to_vec(),
+        }
+    }
+}
+
+impl Encoder for DataInitializer {
+    fn encode(&self) -> Vec<u8> {
+        flat_vec![
+            uleb128(self.mem_idx),
+            self.offset.encode(),
+            self.data.clone()
+        ]
+    }
+}
+
+// https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#data-section
+struct DataSection {
+    data_initializers: Vec<DataInitializer>,
+}
+
+impl DataSection {
+    pub fn new() -> DataSection {
+        DataSection {
+            data_initializers: vec![],
+        }
+    }
+
+    pub fn add(&mut self, initializer: DataInitializer) {
+        self.data_initializers.push(initializer);
+    }
+}
+
+impl Encoder for DataSection {
+    fn encode(&self) -> Vec<u8> {
+        encode_section(
+            WasmSection::Data,
+            encode_vecs(
+                self.data_initializers
+                    .iter()
+                    .map(|init| init.encode())
+                    .collect(),
+            ),
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -710,34 +939,5 @@ mod tests {
                 0xa, 0x9, 0x1, 0x7, 0x0, 0x20, 0x0, 0x20, 0x1, 0xa0, 0xb // code section
             ]
         );
-    }
-
-    #[test]
-    fn test() {
-        let mut module = WasmModule::new();
-        use ValueType::F64;
-        use WasmInst::*;
-
-        module.import_func("host", "print", FuncSignature::new(&[F64], None));
-
-        let start_func = module.add_func(WasmFunc::new(
-            FuncSignature::void(),
-            FuncBody::new(
-                Locals::from_types(&[]),
-                &[Constf64(22f64), Constf64(7f64), Divf64, Call(0)],
-            ),
-        ));
-
-        println!("start func idx: {}", start_func);
-
-        module.set_start_func(start_func);
-
-        use std::fs::File;
-        use std::io::prelude::*;
-
-        let mut out = File::create("out.wasm").unwrap();
-        out.write_all(&module.encode()).unwrap();
-
-        // println!("{:x?}", module.encode());
     }
 }

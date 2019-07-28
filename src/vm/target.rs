@@ -1,7 +1,13 @@
 use super::wasm_module::{
-    Encoder, FuncBody, FuncIdx, FuncSignature, Locals, ValueType, WasmFunc, WasmInst, WasmModule,
+    encode_vec, DataInitializer, Encoder, FuncBody, FuncIdx, FuncSignature, Global, Initializer,
+    Locals, MemoryIdx, ValueType, WasmFunc, WasmInst, WasmModule,
 };
+
+extern crate byteorder;
+use byteorder::{ByteOrder, LittleEndian};
+
 use super::{Chunk, EloxVM, Inst, Value};
+use crate::parser::Identifier;
 use crate::runner::{EloxResult, EloxRunner};
 use crate::scanner::scanner_result::ErrorPosition;
 use fnv::FnvHashMap;
@@ -48,28 +54,42 @@ impl WasmTarget {
         idx + self.imports_count + 1 // + main
     }
 
-    fn translate_inst(&mut self, inst: &Inst, chunk: &Chunk) {
+    fn call(&mut self, func: FuncUtil) -> WasmInst {
+        WasmInst::Call(self.use_(func))
+    }
+
+    fn translate_inst(&mut self, inst: &Inst, chunk: &Chunk, func_args: usize) {
+        let local_idx_offset = -(Identifier::reserved_count() as isize) + func_args as isize;
         let wasm_inst = match inst {
             Inst::Const(idx) => {
                 let val = chunk.const_(*idx).unwrap();
-                match val {
-                    Value::Number(n) => WasmInst::Constf64(*n),
-                    Value::Boolean(b) => WasmInst::Consti32(if *b { 1 } else { 0 }),
-                    _ => panic!("const not implemented: {:?}", val),
-                }
+                self.emit_multiple(&[
+                    //WasmInst::Consti32(val.type_nb() as i32),
+                    match val {
+                        Value::Number(n) => WasmInst::Constf64(*n),
+                        Value::Boolean(b) => WasmInst::Consti32(if *b { 1 } else { 0 }),
+                        _ => panic!("const not implemented: {:?}", val),
+                    },
+                ]);
+                return;
             }
+            // Inst::Const(idx) => WasmInst::Consti32(*idx as i32),
             Inst::Print => WasmInst::Call(0),
             Inst::Add => WasmInst::Addf64,
             Inst::Sub => WasmInst::Subf64,
             Inst::Mult => WasmInst::Mulf64,
             Inst::Div => WasmInst::Divf64,
             Inst::Neg => WasmInst::Negf64,
-            Inst::Mod => {
-                let mod_idx = self.use_(FuncUtil::ModF64F64);
-                self.emit_multiple(&[WasmInst::Call(mod_idx)]);
-                return;
-            }
+            Inst::Mod => self.call(FuncUtil::ModF64),
             Inst::Pop => WasmInst::Drop_,
+            Inst::True => WasmInst::Consti32(1),
+            Inst::False => WasmInst::Consti32(0),
+            Inst::GetLocal(idx) => WasmInst::GetLocal((*idx as isize + local_idx_offset) as u32),
+            Inst::SetLocal(idx) => WasmInst::SetLocal((*idx as isize + local_idx_offset) as u32),
+            Inst::GetGlobal(idx) => WasmInst::GetLocal((*idx as isize + local_idx_offset) as u32),
+            Inst::SetGlobal(idx) | Inst::DefGlobal(idx) => {
+                WasmInst::SetLocal((*idx as isize + local_idx_offset) as u32)
+            }
             Inst::Ret => return,
             _ => panic!(format!("wasm translation not implemented for {:?}", inst)),
         };
@@ -80,7 +100,8 @@ impl WasmTarget {
 
 #[derive(Hash, PartialEq, Eq)]
 enum FuncUtil {
-    ModF64F64,
+    ModF64,
+    Add,
 }
 
 struct WasmUtils;
@@ -88,26 +109,76 @@ struct WasmUtils;
 impl WasmUtils {
     pub fn get(func: &FuncUtil) -> WasmFunc {
         match func {
-            FuncUtil::ModF64F64 => WasmUtils::mod_f64_f64(),
+            FuncUtil::ModF64 => WasmUtils::f64mod(),
+            FuncUtil::Add => WasmUtils::add(),
         }
     }
 
-    fn mod_f64_f64() -> WasmFunc {
+    fn f64mod() -> WasmFunc {
+        use ValueType::*;
         use WasmInst::*;
         WasmFunc::new(
-            FuncSignature::new(&[ValueType::F64, ValueType::F64], Some(ValueType::F64)),
+            FuncSignature::new(&[F64, F64], Some(F64)),
             FuncBody::new(
                 Locals::from_types(&[]),
                 &[
                     GetLocal(0),
-                    TruncF64ToI64,
                     GetLocal(1),
-                    TruncF64ToI64,
-                    RemUi64,
-                    ConvertI64ToF64,
+                    GetLocal(0),
+                    GetLocal(1),
+                    Divf64,
+                    Floorf64,
+                    Mulf64,
+                    Subf64,
                 ],
             ),
         )
+    }
+
+    fn add() -> WasmFunc {
+        use ValueType::*;
+        use WasmInst::*;
+        WasmFunc::new(
+            FuncSignature::new(&[I32, F64, I32, F64], Some(F64)),
+            FuncBody::new(Locals::from_types(&[]), &[GetLocal(1), GetLocal(3), Addf64]),
+        )
+    }
+}
+
+impl Encoder for Value {
+    fn encode(&self) -> Vec<u8> {
+        match self {
+            Value::Number(n) => {
+                let mut encoded = vec![1u8]; // number type
+                let mut buf = [0; 8];
+                LittleEndian::write_f64(&mut buf, *n);
+                encoded.extend(&buf);
+
+                encoded
+            }
+            _ => panic!(format!("type not encodable yet: {:?}", self)),
+        }
+    }
+}
+
+impl Value {
+    pub fn to_data_initializer(&self, mem_idx: MemoryIdx, offset: u32) -> (DataInitializer, u32) {
+        let mut encoded = self.encode();
+        encoded = encode_vec(encoded);
+        let len = encoded.len() as u32;
+        (
+            DataInitializer::new(mem_idx, Initializer::Consti32(offset as i32), &encoded),
+            len,
+        )
+    }
+
+    pub fn type_nb(&self) -> u8 {
+        match self {
+            Value::Number(_) => 0x01,
+            Value::Boolean(_) => 0x02,
+            Value::Nil => 0x03,
+            Value::Object(_) => 0x04,
+        }
     }
 }
 
@@ -118,13 +189,28 @@ impl EloxTranslator for WasmTarget {
         self.module
             .import_func("host", "print", FuncSignature::new(&[F64], None));
 
+        // minimum if all constants are numbers (1 type byte + 8 data bytes)
+        let mut constants_data: Vec<u8> = Vec::with_capacity(9 * chunk.constants().len());
+
+        for constant in chunk.constants() {
+            constants_data.extend(&constant.encode());
+        }
+
+        constants_data = encode_vec(encode_vec(constants_data));
+
+        self.module.add_data_init(DataInitializer::new(
+            0,
+            Initializer::Consti32(0i32),
+            &constants_data,
+        ));
+
         for inst in chunk.instructions() {
-            self.translate_inst(inst, chunk);
+            self.translate_inst(inst, chunk, 0);
         }
 
         let start_func = self.module.add_func(WasmFunc::new(
             FuncSignature::void(),
-            FuncBody::new(Locals::from_types(&[]), &self.code),
+            FuncBody::new(Locals::from_types(&[I32]), &self.code),
         ));
 
         self.module.set_start_func(start_func);
@@ -132,6 +218,12 @@ impl EloxTranslator for WasmTarget {
         for used_func in self.used_funcs.keys() {
             self.module.add_func(WasmUtils::get(used_func));
         }
+
+        // set the first global to the memory offset so far
+        self.module.add_global(Global::new(
+            ValueType::I32,
+            Initializer::Consti32(constants_data.len() as i32),
+        ));
 
         self.module.encode()
     }
@@ -152,8 +244,9 @@ impl EloxRunner for WasmTarget {
         Ok(())
     }
 
-    fn throw_error(&mut self, err: impl ErrorPosition) {
+    fn throw_error(&mut self, err: impl ErrorPosition) -> EloxResult {
         let pos = err.position();
         println!("Error [line {}:{}]: {}", pos.line, pos.col, err);
+        Ok(())
     }
 }

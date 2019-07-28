@@ -46,25 +46,27 @@ pub type EloxResult = Result<(), EloxError>;
 
 pub trait EloxRunner {
     fn run(&mut self, source: &str) -> EloxResult;
-    fn throw_error(&mut self, err: impl ErrorPosition);
+    fn throw_error(&mut self, err: impl ErrorPosition) -> EloxResult;
 }
 
 pub trait EloxFileAndPromptRunner {
-    fn run_file(&mut self, path: &Path);
-    fn run_prompt(&mut self);
-    fn run_from_std_args(&mut self);
+    fn run_file(&mut self, path: &Path) -> EloxResult;
+    fn run_prompt(&mut self) -> EloxResult;
+    fn run_from_std_args(&mut self) -> EloxResult;
 }
 
 impl<R: EloxRunner> EloxFileAndPromptRunner for R {
-    fn run_file(&mut self, path: &Path) {
+    fn run_file(&mut self, path: &Path) -> EloxResult {
         let contents = fs::read_to_string(path).expect("incorrect file path");
         if let Err(err) = self.run(&contents) {
-            self.throw_error(err);
+            self.throw_error(err)?;
             process::exit(65);
         }
+
+        Ok(())
     }
 
-    fn run_prompt(&mut self) {
+    fn run_prompt(&mut self) -> EloxResult {
         println!("Welcome to the elox REPL");
 
         loop {
@@ -75,21 +77,23 @@ impl<R: EloxRunner> EloxFileAndPromptRunner for R {
                 .expect("failed to read line");
 
             if let Err(err) = self.run(&input) {
-                self.throw_error(err);
+                self.throw_error(err)?;
             }
         }
     }
 
-    fn run_from_std_args(&mut self) {
+    fn run_from_std_args(&mut self) -> EloxResult {
         let args: Vec<String> = env::args().collect();
 
         match args.len() {
-            1 => self.run_prompt(),
-            2 => self.run_file(Path::new(&args[1])),
+            1 => self.run_prompt()?,
+            2 => self.run_file(Path::new(&args[1]))?,
             _ => {
                 println!("Usage: elox [script]");
                 process::exit(64);
             }
         }
+
+        Ok(())
     }
 }
