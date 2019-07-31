@@ -1,4 +1,4 @@
-use super::{instructions::FuncObj, Chunk, Inst, Obj, Value};
+use super::{instructions::FuncObj, Inst, Obj, Value};
 use crate::interpreter::lexical_scope::LexicalScopeResolutionError;
 use crate::parser::expressions::{
     BinaryOperator, Expr, ExprCtx, FuncExpr, Literal, LogicalOperator, UnaryOperator,
@@ -11,7 +11,7 @@ use fnv::FnvHashMap;
 use std::ops::Deref;
 use std::rc::Rc;
 
-struct Local {
+pub struct Local {
     handle: IdentifierHandle,
     depth: usize,
 }
@@ -35,23 +35,25 @@ pub struct Compiler<'a> {
     identifiers: &'a mut IdentifierHandlesGenerator,
     strings: &'a mut FnvHashMap<String, Rc<Obj>>,
     scope_depth: usize,
-    locals: Vec<Local>,
+    locals: &'a mut Vec<Local>,
 }
 
 impl<'a> Compiler<'a> {
     pub fn new(
+        locals: &'a mut Vec<Local>,
+        scope_depth: usize,
         func: &'a mut FuncObj,
         func_type: FuncType,
         identifiers: &'a mut IdentifierHandlesGenerator,
         strings: &'a mut FnvHashMap<String, Rc<Obj>>,
     ) -> Compiler<'a> {
         Compiler {
+            locals,
+            scope_depth,
             func,
             func_type,
             identifiers,
             strings,
-            scope_depth: 0,
-            locals: Vec::new(),
         }
     }
 
@@ -143,7 +145,10 @@ impl<'a> Compiler<'a> {
 
     fn mark_initialized(&mut self) {
         if self.scope_depth != 0 {
-            let mut local = self.locals.last_mut().unwrap();
+            let mut local = self
+                .locals
+                .last_mut()
+                .expect("Could not mark as initialized");
             local.depth = self.scope_depth;
         }
     }
@@ -338,8 +343,14 @@ impl<'a> Compiler<'a> {
             None
         };
         let mut func = FuncObj::new(name, arity);
-        let mut compiler =
-            Compiler::new(&mut func, type_, &mut self.identifiers, &mut self.strings);
+        let mut compiler = Compiler::new(
+            &mut self.locals,
+            self.scope_depth,
+            &mut func,
+            type_,
+            &mut self.identifiers,
+            &mut self.strings,
+        );
 
         compiler.begin_scope();
 
@@ -355,8 +366,14 @@ impl<'a> Compiler<'a> {
         compiler.end();
         compiler.end_scope(func_expr.pos);
 
-        func.chunk
-            .disassemble(&format!("<fn {:?}>", func_expr.name));
+        func.chunk.disassemble(&format!(
+            "<fn {:?}>",
+            if let Some(handle) = func_expr.name {
+                self.identifiers.name(handle.name)
+            } else {
+                "anonymous".into()
+            }
+        ));
         let func_val = Value::Object(Rc::new(Obj::Func(Rc::new(func))));
         self.emit_constant(func_val, func_expr.pos);
 

@@ -2,7 +2,7 @@
 
 Elox for Extended-lox, is a superset of the lox toy language from Bob Nystrom's book [_Crafting Interpreters_](http://www.craftinginterpreters.com/).
 
-It is an interpreted or compiled, dynamically typed, objected oriented programming language.
+It is an interpreted (both in a VM or directly by walking the AST) or compiled (to WASM), dynamically typed, objected oriented programming language.
 
 You can test it [here](https://nathsou.github.io/Elox/web/dist/index.html)
 

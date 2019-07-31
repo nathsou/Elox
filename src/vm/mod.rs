@@ -13,13 +13,11 @@ use crate::scanner::scanner_result::ErrorPosition;
 use crate::scanner::token::Position;
 use crate::scanner::Scanner;
 use chunk::Chunk;
-use compiler::{Compiler, FuncType};
+use compiler::{Compiler, FuncType, Local};
 use fnv::FnvHashMap;
-use instructions::{FuncObj, Inst, NativeFn, NativeFunc, Obj, Value};
+use instructions::{FuncObj, Inst, NativeFunc, Obj, Value};
 use std::fmt;
-use std::ops::Deref;
 use std::rc::Rc;
-use std::time::SystemTime;
 
 macro_rules! binary_op {
     (==, $self: tt) => ({
@@ -364,8 +362,11 @@ impl EloxVM {
         match ast {
             Ok(ast) => {
                 let mut func = FuncObj::new(Some(FuncObj::main_func_name()), 0); // main func
+                let mut locals: Vec<Local> = vec![];
 
                 let mut compiler = Compiler::new(
+                    &mut locals,
+                    0,
                     &mut func,
                     FuncType::SCRIPT,
                     &mut self.identifiers,
