@@ -14,10 +14,10 @@
   "devDependencies": {
     "@wasm-tool/wasm-pack-plugin": "^1.0.0",
     "codeflask": "^1.4.1",
-    "copy-webpack-plugin": "^5.0.3",
-    "file-loader": "^4.0.0",
-    "webpack": "^4.35.3",
-    "webpack-cli": "^3.3.5",
+    "copy-webpack-plugin": "^11.0.0",
+    "file-loader": "^6.2.0",
+    "webpack": "^5.75.0",
+    "webpack-cli": "^5.0.1",
     "webpack-dev-server": "^3.7.2"
   }
 }
